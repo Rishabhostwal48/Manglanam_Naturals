@@ -1,0 +1,90 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 20 10% 10%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 20 10% 10%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 10% 10%;
+    
+    --primary: 28 91% 54%;
+    --primary-foreground: 0 0% 98%;
+    
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 28 91% 54%;
+    
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans transition-colors duration-200;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-playfair;
+  }
+}
+
+@layer components {
+  .container-custom {
+    @apply container px-4 md:px-6 mx-auto;
+  }
+  
+  .wide-container {
+    @apply max-w-[1600px] !important;
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary/90 transition-colors;
+  }
+  
+  .btn-outline {
+    @apply border border-primary text-primary hover:bg-primary/10 transition-colors;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-md;
+  }
+
+  .hover-scale {
+    @apply transition-transform duration-300 hover:scale-[1.02];
+  }
+  
+  .glass {
+    @apply bg-background/80 backdrop-blur-md border border-border/50;
+  }
+  
+  .card-custom {
+    @apply bg-card border border-border/70 shadow-sm;
+  }
+  
+  .highlight {
+    @apply text-primary/90;
+  }
+}

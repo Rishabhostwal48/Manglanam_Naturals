@@ -98,9 +98,19 @@ const getUserProfile = async (req, res) => {
       return res.status(401).json({ message: 'Not authorized' });
     }
     
+    // Log the user ID we're trying to find
+    console.log('Attempting to find user with ID:', req.user._id);
+    
+    if (!req.user._id) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+    
     const user = await User.findById(req.user._id);
 
     if (user) {
+      // Log successful user retrieval
+      console.log('User found:', user.email);
+      
       res.json({
         _id: user._id,
         name: user.name,
@@ -108,11 +118,25 @@ const getUserProfile = async (req, res) => {
         role: user.role,
       });
     } else {
+      console.log('User not found with ID:', req.user._id);
       res.status(404).json({ message: 'User not found' });
     }
   } catch (error) {
     console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    
+    // More detailed error handling
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        message: 'Invalid user ID format', 
+        error: error.message 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Server Error', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'production' ? null : error.stack
+    });
   }
 };
 

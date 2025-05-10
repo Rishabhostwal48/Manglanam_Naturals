@@ -31,14 +31,19 @@ const orderSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false // Make user optional for guest orders
   },
   orderItems: [orderItemSchema],
   shippingAddress: {
-    address: { type: String, required: true },
+    address: { type: String, required: false },
+    street: { type: String, required: false },
     city: { type: String, required: true },
-    postalCode: { type: String, required: true },
-    country: { type: String, required: true }
+    postalCode: { type: String, required: false },
+    zipCode: { type: String, required: false },
+    country: { type: String, required: true },
+    fullName: { type: String, required: false },
+    email: { type: String, required: false },
+    phone: { type: String, required: false }
   },
   paymentMethod: {
     type: String,

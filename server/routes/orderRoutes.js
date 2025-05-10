@@ -14,7 +14,7 @@ import { protect, admin } from '../middleware/authMiddleware.js';
 
 // User routes
 router.route('/')
-  .post(protect, createOrder)
+  .post(createOrder) // Allow guest orders
   .get(protect, admin, getOrders);
 
 router.route('/myorders').get(protect, getMyOrders);

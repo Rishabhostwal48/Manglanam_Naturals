@@ -1,11 +1,15 @@
 import Order from '../models/orderModel.js';
+import mongoose from 'mongoose';
 
 // @desc    Create new order
 // @route   POST /api/orders
 // @access  Private
 const createOrder = async (req, res) => {
   try {
-    const {
+    console.log('Creating order with body:', req.body);
+    
+    // Extract data from request body
+    let {
       orderItems,
       shippingAddress,
       paymentMethod,
@@ -14,14 +18,105 @@ const createOrder = async (req, res) => {
       shippingPrice,
       totalPrice,
     } = req.body;
+    
+    // Handle different order formats
+    // If client sends items instead of orderItems, convert it
+    if (!orderItems && req.body.items) {
+      console.log('Converting items to orderItems format');
+      orderItems = req.body.items.map(item => ({
+        product: item._id || item.id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        image: item.image
+      }));
+    }
+    
+    // Validate and convert product IDs to ObjectId
+    try {
+      orderItems = orderItems.map(item => {
+        try {
+          console.log('Processing product ID:', item.product, 'Type:', typeof item.product);
+          
+          // If we're using mock data, just use the ID as is
+          if (process.env.VITE_USE_MOCK_DATA === 'true') {
+            console.log('Using mock data, skipping ObjectId validation');
+            return item;
+          }
+          
+          if (typeof item.product === 'string' && mongoose.Types.ObjectId.isValid(item.product)) {
+            item.product = new mongoose.Types.ObjectId(item.product);
+          } else if (item.product && typeof item.product === 'object' && item.product._bsontype === 'ObjectID') {
+            // Already an ObjectId, no conversion needed
+          } else if (item.product && typeof item.product === 'string') {
+            // If it's a string but not a valid ObjectId, use it as is for mock data
+            console.log('Using non-ObjectId string as product ID:', item.product);
+          } else {
+            console.warn(`Potentially invalid product ID: ${item.product}, using as is`);
+          }
+        } catch (err) {
+          console.error('Product ID validation error for item:', item, 'Error:', err);
+          // Don't throw, just use the ID as is
+        }
+        return item;
+      });
+    } catch (mapError) {
+      console.error('Error processing order items:', mapError);
+      // Continue with the original items
+    }
+    
+    // If totalPrice is not provided but total is, use that
+    if (!totalPrice && req.body.total) {
+      totalPrice = req.body.total;
+    }
+    
+    // Calculate prices if not provided
+    if (!itemsPrice) {
+      itemsPrice = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    }
+    
+    if (!taxPrice) {
+      taxPrice = req.body.taxPrice || 0;
+    }
+    
+    if (!shippingPrice) {
+      shippingPrice = req.body.shippingPrice || 0;
+    }
+    
+    console.log('Processed order data:', {
+      orderItems,
+      shippingAddress,
+      paymentMethod,
+      itemsPrice,
+      taxPrice,
+      shippingPrice,
+      totalPrice
+    });
 
-    if (orderItems && orderItems.length === 0) {
+    if (!orderItems || orderItems.length === 0) {
       res.status(400).json({ message: 'No order items' });
       return;
     }
 
-    const order = new Order({
-      user: req.user._id,
+    // Handle user ID
+    let userId;
+    
+    if (req.user) {
+      // If authenticated, use the authenticated user's ID
+      userId = req.user._id;
+    } else if (req.body.userId && req.body.userId !== 'guest') {
+      // If a userId is provided and it's not 'guest', use it
+      try {
+        // Try to convert to ObjectId if it's a valid MongoDB ID
+        userId = mongoose.Types.ObjectId(req.body.userId);
+      } catch (e) {
+        // If not a valid ObjectId, use as string
+        userId = req.body.userId;
+      }
+    }
+    
+    // Create the order object
+    const orderData = {
       orderItems,
       shippingAddress,
       paymentMethod,
@@ -29,27 +124,44 @@ const createOrder = async (req, res) => {
       taxPrice,
       shippingPrice,
       totalPrice,
-    });
+    };
+    
+    // Only add user if we have a valid userId
+    if (userId) {
+      orderData.user = userId;
+    }
+    
+    console.log('Final order data:', orderData);
+    const order = new Order(orderData);
 
     const createdOrder = await order.save();
     
     // Access the Socket.IO instance and emit a 'newOrder' event to admin room
-    const io = req.app.get('io');
-    if (io) {
-      const orderNotification = {
-        _id: createdOrder._id,
-        orderNumber: createdOrder._id.toString().substring(createdOrder._id.toString().length - 6).toUpperCase(),
-        totalPrice: createdOrder.totalPrice,
-        customerName: shippingAddress.fullName,
-        items: orderItems.length,
-        createdAt: createdOrder.createdAt
-      };
-      
-      // Emit to admin room for real-time updates in admin panel
-      io.to('admin').emit('newOrder', orderNotification);
-      
-      // Emit to specific user room if user created the order
-      io.to(`user-${req.user._id}`).emit('orderConfirmation', orderNotification);
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        const orderNotification = {
+          _id: createdOrder._id,
+          orderNumber: createdOrder._id.toString().substring(createdOrder._id.toString().length - 6).toUpperCase(),
+          totalPrice: createdOrder.totalPrice,
+          customerName: shippingAddress?.fullName || 'Guest',
+          items: orderItems.length,
+          createdAt: createdOrder.createdAt
+        };
+        
+        // Emit to admin room for real-time updates in admin panel
+        io.to('admin').emit('newOrder', orderNotification);
+        
+        // Emit to specific user room if user created the order
+        if (req.user) {
+          io.to(`user-${req.user._id}`).emit('orderConfirmation', orderNotification);
+        }
+      } else {
+        console.log('Socket.IO not initialized, skipping notifications');
+      }
+    } catch (socketError) {
+      console.error('Error sending socket notifications:', socketError);
+      // Continue with the response, don't let socket errors fail the order creation
     }
     
     res.status(201).json(createdOrder);
@@ -134,7 +246,7 @@ const updateOrderToDelivered = async (req, res) => {
       res.status(404).json({ message: 'Order not found' });
     }
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };

@@ -37,6 +37,14 @@ const productSchema = new mongoose.Schema({
     required: [true, 'Main image is required']
   },
   images: [String],
+  video: {
+    type: String,
+    default: ''
+  },
+  video: {
+    type: String,
+    default: ''
+  },
   featured: {
     type: Boolean,
     default: false
