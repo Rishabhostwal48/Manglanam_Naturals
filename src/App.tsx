@@ -1,12 +1,12 @@
 import React from 'react';
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "./components/ui/toaster";
+import { Toaster as Sonner } from "./components/ui/sonner";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { CartProvider } from "@/context/CartContext";
-import { OrderProvider } from "@/context/OrderContext";
-import { AuthProvider } from "@/context/AuthContext";
+import { CartProvider } from "./context/CartContext";
+import { OrderProvider } from "./context/OrderContext";
+import { AuthProvider } from "./context/AuthContext";
 import Profile from "./pages/Profile";
 
 // Pages
@@ -23,15 +23,14 @@ import Register from "./pages/Register";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import TermsOfService from "./pages/legal/TermsOfService";
 import ShippingPolicy from "./pages/legal/ShippingPolicy";
-import Orders from '@/pages/Orders';
-import OrderConfirmation from '@/pages/OrderConfirmation';
+import Orders from './pages/Orders';
+import OrderConfirmation from './pages/OrderConfirmation';
 
 // Admin Pages
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminProducts from "./pages/admin/AdminProductsPage";
 import AdminOrders from "./pages/admin/Orders";
-import AdminLogin from "./pages/admin/Login";
 import AdminCustomers from "./pages/admin/Customers";
 import AdminSettings from "./pages/admin/Settings";
 import AdminBlogPosts from "./pages/admin/BlogPosts";

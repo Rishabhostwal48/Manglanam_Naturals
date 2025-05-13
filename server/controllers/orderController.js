@@ -1,5 +1,7 @@
 import Order from '../models/orderModel.js';
 import mongoose from 'mongoose';
+import User from '../models/userModel.js';
+import { sendOrderConfirmationMessage, sendOrderStatusUpdateMessage } from '../utils/smsService.js';
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -136,17 +138,22 @@ const createOrder = async (req, res) => {
 
     const createdOrder = await order.save();
     
+    // Generate order number and tracking ID for notifications
+    const orderNumber = createdOrder._id.toString().substring(createdOrder._id.toString().length - 6).toUpperCase();
+    const trackingId = `MNG-${orderNumber}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    
     // Access the Socket.IO instance and emit a 'newOrder' event to admin room
     try {
       const io = req.app.get('io');
       if (io) {
         const orderNotification = {
           _id: createdOrder._id,
-          orderNumber: createdOrder._id.toString().substring(createdOrder._id.toString().length - 6).toUpperCase(),
+          orderNumber: orderNumber,
           totalPrice: createdOrder.totalPrice,
           customerName: shippingAddress?.fullName || 'Guest',
           items: orderItems.length,
-          createdAt: createdOrder.createdAt
+          createdAt: createdOrder.createdAt,
+          trackingId: trackingId
         };
         
         // Emit to admin room for real-time updates in admin panel
@@ -164,7 +171,68 @@ const createOrder = async (req, res) => {
       // Continue with the response, don't let socket errors fail the order creation
     }
     
-    res.status(201).json(createdOrder);
+    // Send notification (SMS or WhatsApp) if phone number is available
+    try {
+      // Check if there's a WhatsApp number in the shipping address
+      let contactNumber = shippingAddress?.whatsappNumber || shippingAddress?.phone;
+      let useWhatsApp = shippingAddress?.preferWhatsapp || false;
+      
+      // If no number in shipping address but user is logged in, try to get from user profile
+      if (!contactNumber && userId) {
+        try {
+          const user = await User.findById(userId);
+          if (user) {
+            // If user has WhatsApp number and prefers it, use that
+            if (user.whatsappNumber && user.preferWhatsapp) {
+              contactNumber = user.whatsappNumber;
+              useWhatsApp = true;
+            } 
+            // Otherwise use WhatsApp number if available but not preferred
+            else if (user.whatsappNumber) {
+              contactNumber = user.whatsappNumber;
+              useWhatsApp = false;
+            }
+            // If no WhatsApp number, check for phone in shipping address
+            else if (shippingAddress?.phone) {
+              contactNumber = shippingAddress.phone;
+              useWhatsApp = false;
+            }
+          }
+        } catch (userError) {
+          console.error('Error fetching user for notification:', userError);
+        }
+      }
+      
+      if (contactNumber) {
+        // Format phone number if needed (add country code if not present)
+        const formattedPhone = contactNumber.startsWith('+') ? contactNumber : `+${contactNumber}`;
+        
+        // Send order confirmation message with tracking ID
+        const messageResult = await sendOrderConfirmationMessage(
+          formattedPhone, 
+          orderNumber, 
+          trackingId,
+          useWhatsApp
+        );
+        
+        if (!messageResult.success) {
+          console.warn(`Notification failed: ${messageResult.error}`);
+        } else {
+          console.log(`Order confirmation sent via ${useWhatsApp ? 'WhatsApp' : 'SMS'} to ${formattedPhone}`);
+        }
+      } else {
+        console.log('No phone number available for notification');
+      }
+    } catch (notificationError) {
+      console.error('Error sending notification:', notificationError);
+      // Continue with the response, don't let notification errors fail the order creation
+    }
+    
+    // Include tracking ID in the response
+    const responseOrder = createdOrder.toObject();
+    responseOrder.trackingId = trackingId;
+    
+    res.status(201).json(responseOrder);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server Error', error: error.message });
@@ -257,25 +325,33 @@ const updateOrderToDelivered = async (req, res) => {
 const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const order = await Order.findById(req.params.id).populate('user', 'id');
+    // Populate user and shipping address to get phone number
+    const order = await Order.findById(req.params.id)
+      .populate('user', 'id')
+      .lean();
 
     if (order) {
-      order.status = status;
+      // Get the original order to update
+      const orderToUpdate = await Order.findById(req.params.id);
+      orderToUpdate.status = status;
       
       // If status is delivered, update isDelivered as well
       if (status === 'delivered') {
-        order.isDelivered = true;
-        order.deliveredAt = Date.now();
+        orderToUpdate.isDelivered = true;
+        orderToUpdate.deliveredAt = Date.now();
       }
 
-      const updatedOrder = await order.save();
+      const updatedOrder = await orderToUpdate.save();
+      
+      // Generate order number for notifications
+      const orderNumber = updatedOrder._id.toString().substring(updatedOrder._id.toString().length - 6).toUpperCase();
       
       // Access the Socket.IO instance and emit a 'orderStatusUpdate' event
       const io = req.app.get('io');
       if (io) {
         const statusUpdate = {
           _id: updatedOrder._id,
-          orderNumber: updatedOrder._id.toString().substring(updatedOrder._id.toString().length - 6).toUpperCase(),
+          orderNumber: orderNumber,
           status: updatedOrder.status,
           updatedAt: new Date().toISOString()
         };
@@ -287,6 +363,58 @@ const updateOrderStatus = async (req, res) => {
         if (order.user?._id) {
           io.to(`user-${order.user._id}`).emit('orderStatusUpdate', statusUpdate);
         }
+      }
+      
+      // Send notification (SMS or WhatsApp) if phone number is available
+      try {
+        // Check if there's a WhatsApp number in the shipping address
+        let contactNumber = order.shippingAddress?.whatsappNumber || order.shippingAddress?.phone;
+        let useWhatsApp = order.shippingAddress?.preferWhatsapp || false;
+        
+        // If no number in shipping address but order has user, try to get from user profile
+        if (!contactNumber && order.user) {
+          try {
+            const user = await User.findById(order.user);
+            if (user) {
+              // If user has WhatsApp number and prefers it, use that
+              if (user.whatsappNumber && user.preferWhatsapp) {
+                contactNumber = user.whatsappNumber;
+                useWhatsApp = true;
+              } 
+              // Otherwise use WhatsApp number if available but not preferred
+              else if (user.whatsappNumber) {
+                contactNumber = user.whatsappNumber;
+                useWhatsApp = false;
+              }
+            }
+          } catch (userError) {
+            console.error('Error fetching user for status notification:', userError);
+          }
+        }
+        
+        if (contactNumber) {
+          // Format phone number if needed (add country code if not present)
+          const formattedPhone = contactNumber.startsWith('+') ? contactNumber : `+${contactNumber}`;
+          
+          // Send order status update message
+          const messageResult = await sendOrderStatusUpdateMessage(
+            formattedPhone, 
+            orderNumber, 
+            status,
+            useWhatsApp
+          );
+          
+          if (!messageResult.success) {
+            console.warn(`Status update notification failed: ${messageResult.error}`);
+          } else {
+            console.log(`Order status update sent via ${useWhatsApp ? 'WhatsApp' : 'SMS'} to ${formattedPhone}`);
+          }
+        } else {
+          console.log('No phone number available for status update notification');
+        }
+      } catch (notificationError) {
+        console.error('Error sending status update notification:', notificationError);
+        // Continue with the response, don't let notification errors fail the status update
       }
       
       res.json(updatedOrder);

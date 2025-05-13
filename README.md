@@ -59,6 +59,10 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Express.js
+- MongoDB
+- Socket.IO
+- Twilio (for SMS notifications)
 
 ## How can I deploy this project?
 
@@ -71,3 +75,34 @@ Yes it is!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Messaging Notifications (SMS & WhatsApp)
+
+This project includes both SMS and WhatsApp notifications for order tracking. When a customer places an order or when an order status changes, they will receive a notification with tracking information through their preferred channel.
+
+### Setup Messaging Notifications
+
+1. Create a Twilio account at [twilio.com](https://www.twilio.com)
+2. Get your Account SID, Auth Token, and a Twilio phone number
+3. For WhatsApp, set up the Twilio WhatsApp sandbox or Business API
+4. Add these credentials to your `.env` file:
+   ```
+   TWILIO_ACCOUNT_SID=your_twilio_account_sid
+   TWILIO_AUTH_TOKEN=your_twilio_auth_token
+   TWILIO_PHONE_NUMBER=your_twilio_phone_number
+   TWILIO_WHATSAPP_NUMBER=your_twilio_whatsapp_number
+   ```
+5. Ensure customers provide their phone numbers during registration or checkout
+6. Notifications will be sent automatically when:
+   - A new order is placed (with tracking ID)
+   - Order status is updated
+
+### WhatsApp Integration
+
+The system allows customers to:
+1. Provide their WhatsApp number during registration (optional)
+2. Choose WhatsApp as their preferred notification channel
+3. Provide a different WhatsApp number during checkout if needed
+4. Receive order confirmations and status updates via WhatsApp
+
+If a customer has both a WhatsApp number and a regular phone number, the system will use their preferred channel based on their settings.

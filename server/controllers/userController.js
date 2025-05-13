@@ -13,7 +13,7 @@ const generateToken = (id) => {
 // @access  Public
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, whatsappNumber, preferWhatsapp } = req.body;
 
     // Validate input
     if (!name || !email || !password) {
@@ -27,11 +27,22 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
 
+    // Format WhatsApp number if provided
+    let formattedWhatsappNumber = null;
+    if (whatsappNumber) {
+      // Ensure WhatsApp number starts with +
+      formattedWhatsappNumber = whatsappNumber.startsWith('+') 
+        ? whatsappNumber 
+        : `+${whatsappNumber}`;
+    }
+
     // Create user
     const user = await User.create({
       name,
       email,
       password,
+      whatsappNumber: formattedWhatsappNumber,
+      preferWhatsapp: preferWhatsapp || false
     });
 
     if (user) {
@@ -40,6 +51,8 @@ const registerUser = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        whatsappNumber: user.whatsappNumber,
+        preferWhatsapp: user.preferWhatsapp,
         role: user.role,
         token: generateToken(user._id),
       });
@@ -77,6 +90,8 @@ const loginUser = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        whatsappNumber: user.whatsappNumber || null,
+        preferWhatsapp: user.preferWhatsapp || false,
         role: user.role,
         token: generateToken(user._id),
       });
@@ -115,6 +130,8 @@ const getUserProfile = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        whatsappNumber: user.whatsappNumber || null,
+        preferWhatsapp: user.preferWhatsapp || false,
         role: user.role,
       });
     } else {
@@ -151,6 +168,23 @@ const updateUserProfile = async (req, res) => {
       user.name = req.body.name || user.name;
       user.email = req.body.email || user.email;
       
+      // Handle WhatsApp number update
+      if (req.body.whatsappNumber !== undefined) {
+        // Format WhatsApp number if provided
+        if (req.body.whatsappNumber) {
+          user.whatsappNumber = req.body.whatsappNumber.startsWith('+') 
+            ? req.body.whatsappNumber 
+            : `+${req.body.whatsappNumber}`;
+        } else {
+          user.whatsappNumber = null; // Allow removing the WhatsApp number
+        }
+      }
+      
+      // Update WhatsApp preference
+      if (req.body.preferWhatsapp !== undefined) {
+        user.preferWhatsapp = req.body.preferWhatsapp;
+      }
+      
       if (req.body.password) {
         user.password = req.body.password;
       }
@@ -161,6 +195,8 @@ const updateUserProfile = async (req, res) => {
         _id: updatedUser._id,
         name: updatedUser.name,
         email: updatedUser.email,
+        whatsappNumber: updatedUser.whatsappNumber,
+        preferWhatsapp: updatedUser.preferWhatsapp,
         role: updatedUser.role,
         token: generateToken(updatedUser._id),
       });

@@ -43,7 +43,6 @@ export function searchBlogPosts(query: string): BlogPost[] {
   return [];
 }
 
-/* Commented out sample data
 export const sampleBlogPosts: BlogPost[] = [
   {
     id: "1",
@@ -528,4 +527,3 @@ export const sampleBlogPosts: BlogPost[] = [
     }
   }
 ];
-*/

@@ -43,7 +43,9 @@ const orderSchema = new mongoose.Schema({
     country: { type: String, required: true },
     fullName: { type: String, required: false },
     email: { type: String, required: false },
-    phone: { type: String, required: false }
+    phone: { type: String, required: false },
+    whatsappNumber: { type: String, required: false },
+    preferWhatsapp: { type: Boolean, default: false }
   },
   paymentMethod: {
     type: String,

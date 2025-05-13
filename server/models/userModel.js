@@ -19,6 +19,22 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Password is required'],
     minlength: [6, 'Password should be at least 6 characters']
   },
+  whatsappNumber: {
+    type: String,
+    required: false,
+    // Store with country code format (e.g., +1234567890)
+    validate: {
+      validator: function(v) {
+        // Allow empty or properly formatted numbers
+        return v === '' || v === null || /^\+[1-9]\d{1,14}$/.test(v);
+      },
+      message: props => `${props.value} is not a valid WhatsApp number format! Please use format +[country code][number]`
+    }
+  },
+  preferWhatsapp: {
+    type: Boolean,
+    default: false
+  },
   role: {
     type: String,
     enum: ['user', 'admin'],
