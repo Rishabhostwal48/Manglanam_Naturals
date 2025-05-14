@@ -7,7 +7,7 @@ let useMockData = false;
 // Check MongoDB connection
 try {
   // This will throw an error if Mongoose is not connected
-  if (mongoose?.connection?.readyState !== 1) {
+  if (mongoose?.connection?.readyState === 1) {
     console.log('MongoDB not connected, using mock data');
     useMockData = false;
   }

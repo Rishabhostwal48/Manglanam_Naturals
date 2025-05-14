@@ -146,7 +146,7 @@ export function Navbar() {
                   </DrawerHeader>
                   <div className="py-6 px-6 overflow-y-auto">
                     {/* Mobile Search */}
-                    <form onSubmit={handleSearch} className="mb-6">
+                    {/* <form onSubmit={handleSearch} className="mb-6">
                       <div className="relative">
                         <Input
                           type="search"
@@ -158,7 +158,7 @@ export function Navbar() {
                         />
                         <Search className="absolute top-1/2 left-4 transform -translate-y-1/2 h-5 w-5 text-primary/60" />
                       </div>
-                    </form>
+                    </form> */}
 
                     {/* Mobile Navigation Links */}
                     <nav className="space-y-1">
@@ -243,7 +243,7 @@ export function Navbar() {
                 </Link>
 
                 {/* Search Bar (Center) */}
-                <form
+                {/* <form
                   onSubmit={handleSearch}
                   className="relative w-1/3 max-w-md"
                 >
@@ -255,7 +255,7 @@ export function Navbar() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                   <Search className="absolute top-1/2 left-3 transform -translate-y-1/2 h-4 w-4 text-primary/60" />
-                </form>
+                </form> */}
 
                 {/* Cart and Account (Right) */}
                 {/* <div className="flex items-center space-x-4">

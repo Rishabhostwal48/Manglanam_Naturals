@@ -47,18 +47,18 @@ const __dirname = path.dirname(__filename);
 
 // Serve uploaded files with proper MIME types
 const uploadsPath = path.join(__dirname, 'uploads');
-console.log('Uploads directory path:', uploadsPath);
+// console.log('Uploads directory path:', uploadsPath);
 
 // Check if uploads directory exists, create it if not
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
-  console.log('Created uploads directory');
+  // console.log('Created uploads directory');
 }
 
 // List files in uploads directory for debugging
 try {
   const files = fs.readdirSync(uploadsPath);
-  console.log('Files in uploads directory:', files);
+  // console.log('Files in uploads directory:', files);
 } catch (error) {
   console.error('Error reading uploads directory:', error);
 }
@@ -68,8 +68,8 @@ app.get('/uploads/:filename', (req, res) => {
   const filename = req.params.filename;
   const filepath = path.join(uploadsPath, filename);
   
-  console.log(`Request for file: ${filename}`);
-  console.log(`Full path: ${filepath}`);
+  // console.log(`Request for file: ${filename}`);
+  // console.log(`Full path: ${filepath}`);
   
   // Check if file exists
   if (!fs.existsSync(filepath)) {
@@ -165,7 +165,7 @@ try {
     cors: {
       origin: process.env.NODE_ENV === 'production'
         ? [process.env.FRONTEND_URL || 'https://yourdomain.com']
-        : ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:8081', 'http://localhost:5000', 'http://localhost:5173', 'http://192.168.240.115:8081'],
+        : ['http://localhost:8080',],
       methods: ['GET', 'POST'],
       credentials: true
     }
@@ -181,14 +181,14 @@ try {
     // Join admin room if admin user
     socket.on('joinAdminRoom', () => {
       socket.join('admin');
-      console.log('Admin joined admin room');
+      // console.log('Admin joined admin room');
     });
     
     // Join user room
     socket.on('joinUserRoom', (userId) => {
       if (userId) {
         socket.join(`user-${userId}`);
-        console.log(`User ${userId} joined their room`);
+        // console.log(`User ${userId} joined their room`);
       }
     });
     
