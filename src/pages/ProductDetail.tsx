@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef,useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ChevronRight, Minus, Plus, ShoppingBag, ArrowLeft, Heart, Play, ChevronLeft, ChevronUp, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,14 @@ import { useCart } from '@/context/CartContext';
 import { ProductCard } from '@/components/ProductCard';
 import { formatCurrency } from '@/lib/utils';
 import { categories } from '@/data/products';
+
+
+interface ProductSize {
+  size: string;
+  price: number;
+  salePrice?: number;
+  inStock: boolean;
+}
 
 interface Product {
   _id: string | any; // Allow for MongoDB ObjectId or string
@@ -26,10 +34,11 @@ interface Product {
   featured: boolean;
   bestSeller: boolean;
   inStock: boolean;
-  weight: string;
-  origin: string;
+  weight: string; // For backward compatibility
+  origin: string; // For backward compatibility
   tags: string[];
   rating: number;
+  sizes?: ProductSize[]; // Array of available sizes with their respective prices
   reviewCount: number;
 }
 
@@ -39,9 +48,10 @@ export default function ProductDetail() {
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [showVideoModal, setShowVideoModal] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  
+const [showVideoModal, setShowVideoModal] = useState(false);
+const videoRef = useRef<HTMLVideoElement>(null);
+const [selectedSize, setSelectedSize] = useState<string>('');
+
   // Fetch product data from API
   const { data: product, isLoading, error } = useQuery({
     queryKey: ['product', id],
@@ -78,6 +88,36 @@ export default function ProductDetail() {
   });
   
   const relatedProducts = relatedProductsData || [];
+  
+  // Set default selected size when product loads
+  useEffect(() => {
+    if (product && product.sizes && product.sizes.length > 0) {
+      // Default to first available size
+      const defaultSize = product.sizes.find(s => s.inStock) || product.sizes[0];
+      setSelectedSize(defaultSize.size);
+    } else if (product && product.weight) {
+      // Fallback to legacy weight field
+      setSelectedSize(product.weight);
+    }
+  }, [product]);
+  
+  // Get current price based on selected size
+  const getCurrentPrice = (): { price: number, salePrice?: number } => {
+    if (!product) return { price: 0 };
+    
+    if (!product.sizes || product.sizes.length === 0) {
+      return { price: product.price, salePrice: product.salePrice };
+    }
+    
+    // Find the selected size
+    const sizeInfo = product.sizes.find(s => s.size === selectedSize);
+    if (sizeInfo) {
+      return { price: sizeInfo.price, salePrice: sizeInfo.salePrice };
+    }
+    
+    // Fallback to default
+    return { price: product.price, salePrice: product.salePrice };
+  };
   
   if (isLoading) {
     return (
@@ -399,3 +439,7 @@ export default function ProductDetail() {
     </div>
   );
 }
+// function useEffect(arg0: () => void, arg1: any[]) {
+//   throw new Error('Function not implemented.');
+// }
+

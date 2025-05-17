@@ -38,3 +38,17 @@ export const getUserProfile = async () => {
     throw error;
   }
 };
+
+export const updateUserProfile = async (userData: {
+  name?: string;
+  whatsappNumber?: string;
+  preferWhatsapp?: boolean;
+  password?: string;
+}) => {
+  try {
+    const response = await api.put('/users/profile', userData);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};

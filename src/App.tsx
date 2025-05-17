@@ -8,6 +8,7 @@ import { CartProvider } from "./context/CartContext";
 import { OrderProvider } from "./context/OrderContext";
 import { AuthProvider } from "./context/AuthContext";
 import Profile from "./pages/Profile";
+import "@/styles/print.css";
 
 // Pages
 import Home from "./pages/Home";

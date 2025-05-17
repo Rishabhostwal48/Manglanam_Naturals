@@ -37,6 +37,7 @@ export interface Product {
   weight: string;
   inStock: boolean;
   salePrice?: number;
+  sizes:string;
 }
 
 export const categories = [

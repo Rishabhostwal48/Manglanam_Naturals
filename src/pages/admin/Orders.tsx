@@ -177,7 +177,7 @@ export default function AdminOrders() {
               filteredOrders.map((order) => (
                 <TableRow key={order._id}>
                   <TableCell className="font-medium">{order._id}</TableCell>
-                  <TableCell>{order.user?.name || 'N/A'}</TableCell>
+                  <TableCell>{order.user?.name || order.shippingAddress?.fullName || 'Guest'}</TableCell>
                   <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>{getStatusBadge(order.status)}</TableCell>
                   <TableCell>{order.orderItems.length}</TableCell>
@@ -222,7 +222,7 @@ export default function AdminOrders() {
                 <div className="p-4 space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Customer:</span>
-                    <span className="text-sm font-medium">{order.user?.name || 'N/A'}</span>
+                    <span className="text-sm font-medium">{order.user?.name || order.shippingAddress?.fullName || 'Guest'}</span>
                   </div>
                   
                   <div className="flex justify-between">

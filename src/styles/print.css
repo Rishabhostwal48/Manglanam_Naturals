@@ -1,0 +1,48 @@
+    
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide buttons and dialog wrappers */
+  .no-print, .DialogOverlay, .DialogFooter, button {
+    display: none !important;
+  }
+
+  .print-area {
+    padding: 20px;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 800px;
+    font-family: 'Arial', sans-serif;
+    color: #000;
+    background-color: white !important;
+  }
+
+  .print-area h3 {
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+
+  .print-area p {
+    margin-bottom: 4px;
+  }
+
+  .print-area .section {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 12px;
+  }
+
+  .print-area .order-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .print-area .order-summary {
+    text-align: right;
+    margin-top: 20px;
+  }
+}

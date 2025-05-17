@@ -9,13 +9,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+interface ProductSize {
+  size: string;
+  price: number;
+  salePrice?: number;
+  inStock: boolean;
+}
+
 interface Product {
   _id: string | any; // Allow for MongoDB ObjectId or string
   name: string;
   slug: string;
   category: string;
-  price: number;
-  salePrice?: number;
+  price: number; // Default price (for backward compatibility)
+  salePrice?: number; // Default sale price (for backward compatibility)
   description: string;
   shortDescription: string;
   image: string;
@@ -24,11 +31,12 @@ interface Product {
   featured: boolean;
   bestSeller: boolean;
   inStock: boolean;
-  weight: string;
+  weight: string; // Default weight (for backward compatibility)
   origin: string;
   tags: string[];
   rating: number;
   reviewCount: number;
+  sizes?: ProductSize[]; // Array of available sizes with their respective prices
 }
 
 const ProductsPage = () => {
@@ -36,6 +44,7 @@ const ProductsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({}); // Track selected size for each product
 
   // Fetch products with React Query
   const { data: productsData, isLoading, error } = useQuery({
@@ -50,6 +59,41 @@ const ProductsPage = () => {
         console.log(`Fetching products with params: ${params.toString()}`);
         const response = await axios.get(`${import.meta.env.VITE_API_URL}/products?${params.toString()}`);
         console.log('Products API response:', response.data);
+        
+        // Add mock size data for testing if not provided by API
+        // This can be removed once the backend is updated
+        if (response.data && response.data.products) {
+          response.data.products = response.data.products.map((product: Product) => {
+            if (!product.sizes || product.sizes.length === 0) {
+              // Create mock sizes based on the product's weight
+              const defaultWeight = product.weight || '250g';
+              
+              // Mock data for testing - this should come from the backend in production
+              product.sizes = [
+                {
+                  size: '250g',
+                  price: product.price,
+                  salePrice: product.salePrice,
+                  inStock: product.inStock
+                },
+                {
+                  size: '500g',
+                  price: Math.round(product.price * 1.8), // 80% more for 500g
+                  salePrice: product.salePrice ? Math.round(product.salePrice * 1.8) : undefined,
+                  inStock: product.inStock
+                },
+                {
+                  size: '1kg',
+                  price: Math.round(product.price * 3.5), // 3.5x for 1kg
+                  salePrice: product.salePrice ? Math.round(product.salePrice * 3.5) : undefined,
+                  inStock: product.inStock
+                }
+              ];
+            }
+            return product;
+          });
+        }
+        
         return response.data;
       } catch (err) {
         console.error('Error fetching products:', err);
@@ -58,6 +102,29 @@ const ProductsPage = () => {
     }
   });
 
+  // Get product ID as string
+  const getProductId = (product: Product): string => {
+    return product._id ? 
+      (typeof product._id === 'object' ? product._id.toString() : product._id.toString()) : '';
+  };
+
+  // Initialize selected sizes when products load
+  useEffect(() => {
+    if (productsData?.products && productsData.products.length > 0) {
+      const initialSizes: Record<string, string> = {};
+      
+      productsData.products.forEach((product: Product) => {
+        const productId = getProductId(product);
+        if (product.sizes && product.sizes.length > 0) {
+          // Default to first size option
+          initialSizes[productId] = product.sizes[0].size;
+        }
+      });
+      
+      setSelectedSizes(initialSizes);
+    }
+  }, [productsData]);
+
   // Handle product click
   const handleProductClick = (product: Product) => {
     // Use slug if available, otherwise use ID (ensuring it's a string)
@@ -65,6 +132,42 @@ const ProductsPage = () => {
       (product._id ? (typeof product._id === 'object' ? product._id.toString() : product._id) : '');
     console.log('Navigating to product with identifier:', productIdentifier);
     navigate(`/product/${productIdentifier}`);
+  };
+  
+  // Handle size selection
+  const handleSizeSelect = (e: React.MouseEvent, productId: string, size: string) => {
+    e.stopPropagation(); // Prevent card click event
+    setSelectedSizes(prev => ({
+      ...prev,
+      [productId]: size
+    }));
+  };
+  
+  // Get current price based on selected size
+  const getCurrentPrice = (product: Product): { price: number, salePrice?: number } => {
+    if (!product.sizes || product.sizes.length === 0) {
+      return { price: product.price, salePrice: product.salePrice };
+    }
+    
+    const productId = getProductId(product);
+    const selectedSize = selectedSizes[productId];
+    
+    // If no size is selected, use the first size or default
+    if (!selectedSize) {
+      return { 
+        price: product.sizes[0]?.price || product.price,
+        salePrice: product.sizes[0]?.salePrice
+      };
+    }
+    
+    // Find the selected size
+    const sizeInfo = product.sizes.find(s => s.size === selectedSize);
+    if (sizeInfo) {
+      return { price: sizeInfo.price, salePrice: sizeInfo.salePrice };
+    }
+    
+    // Fallback to default
+    return { price: product.price, salePrice: product.salePrice };
   };
 
   // Loading skeleton
@@ -115,6 +218,8 @@ const ProductsPage = () => {
               <SelectItem value="ground-spices">Ground Spices</SelectItem>
               <SelectItem value="whole-spices">Whole Spices</SelectItem>
               <SelectItem value="blends">Spice Blends</SelectItem>
+              <SelectItem value="herbs">Dried Herbs</SelectItem>
+              <SelectItem value="exotic">Exotic Spices</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
@@ -157,24 +262,62 @@ const ProductsPage = () => {
               <CardContent className="p-4">
                 <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
                 <p className="text-sm text-gray-600 mb-2">{product.shortDescription}</p>
+                
+                {/* Size Selector */}
+                {product.sizes && product.sizes.length > 0 ? (
+                  <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+                    <p className="text-sm font-medium mb-1">Size:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {product.sizes.map((sizeOption) => {
+                        const productId = getProductId(product);
+                        const isSelected = selectedSizes[productId] === sizeOption.size || 
+                          (!selectedSizes[productId] && sizeOption.size === product.sizes![0].size);
+                        
+                        return (
+                          <button
+                            key={sizeOption.size}
+                            className={`px-3 py-1 text-sm border rounded-md transition-colors ${
+                              isSelected 
+                                ? 'bg-primary text-white border-primary' 
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-primary'
+                            } ${!sizeOption.inStock ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            disabled={!sizeOption.inStock}
+                            onClick={(e) => handleSizeSelect(e, productId, sizeOption.size)}
+                          >
+                            {sizeOption.size}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+                
+                {/* Price Display */}
                 <div className="flex items-center justify-between">
                   <div>
-                    {product.salePrice ? (
-                      <div className="flex items-center gap-2">
+                    {(() => {
+                      const { price, salePrice } = getCurrentPrice(product);
+                      return salePrice ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-primary">
+                            ₹{salePrice}
+                          </span>
+                          <span className="text-sm text-gray-500 line-through">
+                            ₹{price}
+                          </span>
+                        </div>
+                      ) : (
                         <span className="text-lg font-bold text-primary">
-                          ₹{product.salePrice}
+                          ₹{price}
                         </span>
-                        <span className="text-sm text-gray-500 line-through">
-                          ₹{product.price}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-lg font-bold text-primary">
-                        ₹{product.price}
-                      </span>
-                    )}
+                      );
+                    })()}
                   </div>
-                  <span className="text-sm text-gray-500">{product.weight}</span>
+                  
+                  {/* Display weight if no sizes or for backward compatibility */}
+                  {(!product.sizes || product.sizes.length === 0) && (
+                    <span className="text-sm text-gray-500">{product.weight}</span>
+                  )}
                 </div>
               </CardContent>
               <CardFooter className="p-4 pt-0">
@@ -183,7 +326,11 @@ const ProductsPage = () => {
                   className="w-full"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Add to cart logic here
+                    // Add to cart logic here with selected size
+                    const productId = getProductId(product);
+                    const selectedSize = selectedSizes[productId] || 
+                      (product.sizes && product.sizes.length > 0 ? product.sizes[0].size : product.weight);
+                    console.log(`Adding to cart: ${product.name}, Size: ${selectedSize}`);
                   }}
                 >
                   Add to Cart

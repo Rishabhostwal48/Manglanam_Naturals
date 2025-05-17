@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
 import { UserPlus } from 'lucide-react';
 import { authService } from '@/services/api';
@@ -14,6 +15,8 @@ export default function Register() {
     name: '',
     email: '',
     password: '',
+    whatsappNumber: '',
+    preferWhatsapp: false,
   });
   const [loading, setLoading] = useState(false);
 

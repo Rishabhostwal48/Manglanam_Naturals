@@ -36,13 +36,13 @@ export default function Home() {
 
   const heroImages = [
     {
-      src: "/placeholder.svg",
+      src: "/1.png",
       alt: "Assorted premium spices",
       title: "Premium Spice Collection",
       subtitle: "Authentic flavors from around the world"
     },
     {
-      src: "/placeholder.svg",
+      src: "/2.png",
       alt: "Exotic spice blend",
       title: "Exotic Spice Blends",
       subtitle: "Discover unique flavor combinations"

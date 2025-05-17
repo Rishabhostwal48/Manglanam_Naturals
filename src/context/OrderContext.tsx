@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { orderService } from '../services/orderService';
 
 // Define the type for a shipping address
@@ -23,24 +23,46 @@ export interface OrderItem {
 }
 
 // Define possible order statuses
-export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'canceled' | 'cancelled';
 
 // Define the Order type
 export interface Order {
   _id: string;
-  userId: string;
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  items: OrderItem[];
-  status: OrderStatus;
-  shippingAddress: ShippingAddress;
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  orderItems: {
+    _id: string;
+    product: string;
+    name: string;
+    quantity: number;
+    price: number;
+    image: string;
+  }[];
+  shippingAddress: ShippingAddress & {
+    whatsappNumber?: string;
+    preferWhatsapp?: boolean;
+  };
   paymentMethod: string;
-  paymentStatus: 'pending' | 'completed' | 'failed';
-  paymentId?: string;
-  total: number;
-  createdAt?: string;
-  updatedAt?: string;
+  paymentResult?: {
+    id: string;
+    status: string;
+    update_time: string;
+    email_address: string;
+  };
+  itemsPrice: number;
+  taxPrice: number;
+  shippingPrice: number;
+  totalPrice: number;
+  isPaid: boolean;
+  paidAt?: string;
+  isDelivered: boolean;
+  deliveredAt?: string;
+  status: OrderStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Define the shape of the context
@@ -52,9 +74,12 @@ interface OrderContextType {
   totalAmount: number;
   loading: boolean;
   error: string | null;
-  createOrder: (orderData: Omit<Order, '_id' | 'createdAt' | 'updatedAt'>) => Promise<Order>;
+  orders: Order[];
+  createOrder: (orderData: any) => Promise<Order>;
   getOrderById: (orderId: string) => Promise<Order>;
   getMyOrders: () => Promise<Order[]>;
+  getUserOrders: (userId: string) => Order[];
+  getAllOrders: () => Promise<Order[]>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<Order>;
   updatePaymentStatus: (orderId: string, status: 'completed' | 'failed', paymentId?: string) => Promise<Order>;
 }
@@ -70,8 +95,26 @@ interface OrderProviderProps {
 // OrderContext Provider
 export const OrderProvider = ({ children }: OrderProviderProps) => {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch all orders on component mount
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const result = await orderService.getAllOrders();
+        setOrders(result);
+        setLoading(false);
+      } catch (err) {
+        console.error("Failed to fetch orders:", err);
+        setLoading(false);
+      }
+    };
+    
+    fetchOrders();
+  }, []);
 
   const addItem = (item: OrderItem) => {
     setOrderItems(prev => {
@@ -97,11 +140,13 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
   const totalAmount = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   // Create a new order
-  const createOrder = async (orderData: Omit<Order, '_id' | 'createdAt' | 'updatedAt'>): Promise<Order> => {
+  const createOrder = async (orderData: any): Promise<Order> => {
     setLoading(true);
     setError(null);
     try {
       const result = await orderService.createOrder(orderData);
+      // Add the new order to the orders state
+      setOrders(prev => [result, ...prev]);
       setLoading(false);
       return result;
     } catch (err: any) {
@@ -122,7 +167,25 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
       return result;
     } catch (err: any) {
       setLoading(false);
-      const errorMessage = err.response?.data?.message || 'Failed to fetch order';
+      // Use the error message from the service if available
+      const errorMessage = err.message || err.response?.data?.message || 'Failed to fetch order';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Get all orders (admin)
+  const getAllOrders = async (): Promise<Order[]> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await orderService.getAllOrders();
+      setOrders(result);
+      setLoading(false);
+      return result;
+    } catch (err: any) {
+      setLoading(false);
+      const errorMessage = err.response?.data?.message || 'Failed to fetch orders';
       setError(errorMessage);
       throw new Error(errorMessage);
     }
@@ -144,12 +207,21 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     }
   };
 
+  // Get orders for a specific user
+  const getUserOrders = (userId: string): Order[] => {
+    return orders.filter(order => order.user?._id === userId);
+  };
+
   // Update order status
   const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<Order> => {
     setLoading(true);
     setError(null);
     try {
       const result = await orderService.updateOrderStatus(orderId, status);
+      // Update the order in the orders state
+      setOrders(prev => prev.map(order => 
+        order._id === orderId ? { ...order, status } : order
+      ));
       setLoading(false);
       return result;
     } catch (err: any) {
@@ -166,6 +238,10 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     setError(null);
     try {
       const result = await orderService.updatePaymentStatus(orderId, status, paymentId);
+      // Update the order in the orders state
+      setOrders(prev => prev.map(order => 
+        order._id === orderId ? { ...order, paymentStatus: status, paymentId } : order
+      ));
       setLoading(false);
       return result;
     } catch (err: any) {
@@ -185,9 +261,12 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
       totalAmount,
       loading,
       error,
+      orders,
       createOrder,
       getOrderById,
       getMyOrders,
+      getUserOrders,
+      getAllOrders,
       updateOrderStatus,
       updatePaymentStatus
     }}>

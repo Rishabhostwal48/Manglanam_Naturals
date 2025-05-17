@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loginUser, registerUser, logoutUser, getUserProfile } from '../services/UserService.ts';
+import { loginUser, registerUser, logoutUser, getUserProfile, updateUserProfile } from '../services/UserService.ts';
 import { toast } from '@/components/ui/sonner';
 
 export interface User {
@@ -8,6 +8,8 @@ export interface User {
   email: string;
   role: 'user' | 'admin';
   token: string;
+  whatsappNumber?: string | null;
+  preferWhatsapp?: boolean;
 }
 
 interface AuthContextProps {
@@ -19,6 +21,12 @@ interface AuthContextProps {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateProfile: (userData: {
+    name?: string;
+    whatsappNumber?: string;
+    preferWhatsapp?: boolean;
+    password?: string;
+  }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -120,6 +128,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     toast.success('Logged out successfully');
   };
 
+  const updateProfile = async (userData: {
+    name?: string;
+    whatsappNumber?: string;
+    preferWhatsapp?: boolean;
+    password?: string;
+  }) => {
+    try {
+      setLoading(true);
+      const updatedUserData = await updateUserProfile(userData);
+      
+      if (user) {
+        const newUserData = {
+          ...user,
+          ...updatedUserData
+        };
+        
+        setUser(newUserData);
+        localStorage.setItem('userInfo', JSON.stringify(newUserData));
+      }
+      
+      return updatedUserData;
+    } catch (error: any) {
+      if (error?.code === 'ERR_NETWORK') {
+        toast.error('Cannot connect to the server. Please check your internet connection.');
+      } else {
+        toast.error(error?.response?.data?.message || 'Profile update failed');
+      }
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -131,6 +172,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         login,
         register,
         logout,
+        updateProfile,
       }}
     >
       {children}

@@ -1,5 +1,26 @@
 import mongoose from 'mongoose';
 
+// Define a schema for product sizes with their respective prices
+const sizeSchema = new mongoose.Schema({
+  size: {
+    type: String,
+    required: true
+  },
+  price: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  salePrice: {
+    type: Number,
+    min: 0
+  },
+  inStock: {
+    type: Boolean,
+    default: true
+  }
+}, { _id: false });
+
 const productSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -15,15 +36,19 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required']
   },
+  // Keep price for backward compatibility
   price: {
     type: Number,
     required: [true, 'Price is required'],
     min: 0
   },
+  // Keep salePrice for backward compatibility
   salePrice: {
     type: Number,
     min: 0
   },
+  // Add sizes array for weight-based pricing
+  sizes: [sizeSchema],
   description: {
     type: String,
     required: [true, 'Description is required']
@@ -41,10 +66,6 @@ const productSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  video: {
-    type: String,
-    default: ''
-  },
   featured: {
     type: Boolean,
     default: false
@@ -57,9 +78,10 @@ const productSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Keep weight for backward compatibility
   weight: {
     type: String,
-    required: [true, 'Weight is required']
+    required: false
   },
   origin: {
     type: String,

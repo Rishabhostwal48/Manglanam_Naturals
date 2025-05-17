@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/sonner';
-import { Product, categories } from '@/data/products';
+import {  categories } from '@/data/products';
 import { productService } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,17 +11,55 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Save, ArrowLeft, Upload, X, Film, Image as ImageIcon } from 'lucide-react';
+import { Save, ArrowLeft, Upload, X, Film, Image as ImageIcon, Plus, Trash } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+
+// Define ProductSize interface
+interface ProductSize {
+  size: string;
+  price: number;
+  salePrice?: number;
+  inStock: boolean;
+}
+
+export interface Product {
+  _id: string;
+  name: string;
+  category: string;
+  price: number;
+  image: string;
+  images: string[];
+  video?: string;
+  description: string;
+  featured: boolean;
+  bestSeller: boolean;
+  origin: string;
+  weight: string | string[];
+  inStock: boolean;
+  salePrice?: number;
+  sizes?: ProductSize[]; // <-- update to match your usage
+}
 
 interface ProductFormProps {
   initialData?: Product;
   isEditing?: boolean;
 }
 
+interface ProductSize {
+  size: string;
+  price: number;
+  salePrice?: number;
+  inStock: boolean;
+}
+
+
 export default function ProductForm({ initialData, isEditing = false }: ProductFormProps) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
+  
+  // Default weight options
+  const defaultWeights = ['100g', '250g', '500g', '1kg'];
   
   // Form state
   const [formData, setFormData] = useState<Partial<Product>>({
@@ -36,9 +74,12 @@ export default function ProductForm({ initialData, isEditing = false }: ProductF
     featured: initialData?.featured || false,
     bestSeller: initialData?.bestSeller || false,
     origin: initialData?.origin || '',
-    weight: initialData?.weight || '',
+    weight: Array.isArray(initialData?.weight)
+      ? (initialData?.weight[0] ?? '250g')
+      : (initialData?.weight ?? '250g'), // Default weight for backward compatibility
     inStock: initialData?.inStock ?? true,
     salePrice: initialData?.salePrice || undefined,
+    sizes: initialData?.sizes || []
   });
   
   // Additional state for image uploads
@@ -47,6 +88,25 @@ export default function ProductForm({ initialData, isEditing = false }: ProductF
 
   // Form validation state
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Initialize default sizes if none exist
+  useEffect(() => {
+    if (!formData.sizes || formData.sizes.length === 0) {
+      // Create default sizes based on the base price
+      const basePrice = formData.price || 0;
+      const defaultSizes: ProductSize[] = [
+        { size: '100g', price: Math.round(basePrice * 0.5), salePrice: formData.salePrice ? Math.round(formData.salePrice * 0.5) : undefined, inStock: true },
+        { size: '250g', price: basePrice, salePrice: formData.salePrice, inStock: true },
+        { size: '500g', price: Math.round(basePrice * 1.8), salePrice: formData.salePrice ? Math.round(formData.salePrice * 1.8) : undefined, inStock: true },
+        { size: '1kg', price: Math.round(basePrice * 3.5), salePrice: formData.salePrice ? Math.round(formData.salePrice * 3.5) : undefined, inStock: true }
+      ];
+      
+      setFormData(prev => ({
+        ...prev,
+        sizes: defaultSizes
+      }));
+    }
+  }, []);
 
   // Validate form data
   const validateForm = (): boolean => {
@@ -60,8 +120,9 @@ export default function ProductForm({ initialData, isEditing = false }: ProductF
       newErrors.description = 'Product description is required';
     }
 
+    // Validate base price for backward compatibility
     if (!formData.price || formData.price <= 0) {
-      newErrors.price = 'Price must be greater than 0';
+      newErrors.price = 'Base price must be greater than 0';
     }
 
     if (formData.salePrice && formData.salePrice >= formData.price) {
@@ -72,12 +133,89 @@ export default function ProductForm({ initialData, isEditing = false }: ProductF
       newErrors.category = 'Category is required';
     }
 
-    if (!formData.weight?.trim()) {
-      newErrors.weight = 'Weight is required';
+    // Validate sizes array
+    const sizes = formData.sizes || [];
+    if (sizes.length === 0) {
+      newErrors.sizes = 'At least one weight option with price is required';
+    } else {
+      // Check if each size has valid price
+      const invalidSizes = Array.isArray(sizes)
+        ? sizes.filter(size => !size.price || size.price <= 0)
+        : [];
+      if (invalidSizes.length > 0) {
+        newErrors.sizes = 'All weight options must have a valid price';
+      }
+      
+      // Check for duplicate sizes
+      const sizeNames = Array.isArray(sizes) ? sizes.map(s => s.size) : [];
+      const hasDuplicates = sizeNames.some((size, index) => sizeNames.indexOf(size) !== index);
+      if (hasDuplicates) {
+        newErrors.sizes = 'Weight options must be unique';
+      }
+      
+      // Check if any size is empty
+      const hasEmptySize = Array.isArray(sizes) && sizes.some(s => !s.size.trim());
+      if (hasEmptySize) {
+        newErrors.sizes = 'All weight options must have a name';
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+  
+  // Add a new size option
+  const addSizeOption = () => {
+    setFormData(prev => {
+      const currentSizes = prev.sizes || [];
+      // Use base price for new size option
+      return {
+        ...prev,
+        sizes: [
+          ...currentSizes,
+          {
+            size: '',
+            price: prev.price || 0,
+            salePrice: prev.salePrice,
+            inStock: true
+          }
+        ]
+      };
+    });
+  };
+  
+  // Remove a size option
+  const removeSizeOption = (index: number) => {
+    setFormData(prev => {
+      const currentSizes = [...(prev.sizes || [])];
+      currentSizes.splice(index, 1);
+      return {
+        ...prev,
+        sizes: currentSizes
+      };
+    });
+  };
+  
+  // Update a size option
+  const updateSizeOption = (index: number, field: keyof ProductSize, value: any) => {
+    setFormData(prev => {
+      const currentSizes = [...(prev.sizes || [])];
+      if (currentSizes[index]) {
+        currentSizes[index] = {
+          ...currentSizes[index],
+          [field]: value
+        };
+      }
+      return {
+        ...prev,
+        sizes: currentSizes
+      };
+    });
+    
+    // Clear error when user updates sizes
+    if (errors.sizes) {
+      setErrors(prev => ({ ...prev, sizes: '' }));
+    }
   };
 
   // Handle input changes
@@ -282,6 +420,16 @@ export default function ProductForm({ initialData, isEditing = false }: ProductF
     setLoading(true);
 
     try {
+      // Update the default price and salePrice based on the 250g size (or first size if no 250g)
+      const defaultSize = formData.sizes?.find(s => s.size === '250g') || formData.sizes?.[0];
+      if (defaultSize) {
+        setFormData(prev => ({
+          ...prev,
+          price: defaultSize.price,
+          salePrice: defaultSize.salePrice
+        }));
+      }
+
       if (isEditing && initialData) {
         // Make sure the ID is a string, not an object
         const productId = typeof initialData._id === 'object' ? initialData._id.toString() : initialData._id;
@@ -382,66 +530,140 @@ export default function ProductForm({ initialData, isEditing = false }: ProductF
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="price">Price</Label>
-                <Input
-                  id="price"
-                  name="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={handleNumberChange}
-                  placeholder="0.00"
-                />
-                {errors.price && (
-                  <p className="text-sm text-destructive">{errors.price}</p>
-                )}
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="origin">Origin</Label>
+              <Input
+                id="origin"
+                name="origin"
+                value={formData.origin}
+                onChange={handleChange}
+                placeholder="Enter product origin"
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="salePrice">Sale Price (Optional)</Label>
-                <Input
-                  id="salePrice"
-                  name="salePrice"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.salePrice || ''}
-                  onChange={handleNumberChange}
-                  placeholder="0.00"
-                />
-                {errors.salePrice && (
-                  <p className="text-sm text-destructive">{errors.salePrice}</p>
-                )}
+            {/* Weight-based Pricing Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Weight Options & Pricing</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={addSizeOption}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Weight Option
+                </Button>
+              </div>
+              
+              {errors.sizes && (
+                <p className="text-sm text-destructive">{errors.sizes}</p>
+              )}
+              
+              <div className="space-y-3">
+                {formData.sizes && formData.sizes.map((size, index) => (
+                  <div key={index} className="flex flex-col space-y-2 p-3 border rounded-md">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Weight Option {index + 1}</h4>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeSizeOption(index)}
+                        disabled={formData.sizes?.length === 1}
+                      >
+                        <Trash className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor={`size-${index}`}>Weight</Label>
+                        <Input
+                          id={`size-${index}`}
+                          value={size.size}
+                          onChange={(e) => updateSizeOption(index, 'size', e.target.value)}
+                          placeholder="e.g., 100g, 250g, 1kg"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor={`inStock-${index}`}>In Stock</Label>
+                        <div className="flex items-center h-10 space-x-2">
+                          <Switch
+                            id={`inStock-${index}`}
+                            checked={size.inStock}
+                            onCheckedChange={(checked) => updateSizeOption(index, 'inStock', checked)}
+                          />
+                          <span>{size.inStock ? 'Yes' : 'No'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+`                    <div className="grid grid-cols-2 gap-3">
+`                      <div>
+                        <Label htmlFor={`price-${index}`}>Price</Label>
+                        <Input
+                          id={`price-${index}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={size.price}
+                          onChange={(e) => updateSizeOption(index, 'price', parseFloat(e.target.value))}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor={`salePrice-${index}`}>Sale Price (Optional)</Label>
+                        <Input
+                          id={`salePrice-${index}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={size.salePrice || ''}
+                          onChange={(e) => {
+                            const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                            updateSizeOption(index, 'salePrice', value);
+                          }}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="origin">Origin</Label>
-                <Input
-                  id="origin"
-                  name="origin"
-                  value={formData.origin}
-                  onChange={handleChange}
-                  placeholder="Enter product origin"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="weight">Weight</Label>
-                <Input
-                  id="weight"
-                  name="weight"
-                  value={formData.weight}
-                  onChange={handleChange}
-                  placeholder="e.g., 100g, 1kg"
-                />
-                {errors.weight && (
-                  <p className="text-sm text-destructive">{errors.weight}</p>
-                )}
+            <div className="space-y-2 pt-4">
+              <h3 className="text-sm font-medium">Product Status</h3>
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="featured"
+                    checked={formData.featured}
+                    onCheckedChange={(checked) => handleBooleanChange('featured', checked)}
+                  />
+                  <Label htmlFor="featured">Featured Product</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="bestSeller"
+                    checked={formData.bestSeller}
+                    onCheckedChange={(checked) => handleBooleanChange('bestSeller', checked)}
+                  />
+                  <Label htmlFor="bestSeller">Best Seller</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="inStock"
+                    checked={formData.inStock}
+                    onCheckedChange={(checked) => handleBooleanChange('inStock', checked)}
+                  />
+                  <Label htmlFor="inStock">In Stock</Label>
+                </div>
               </div>
             </div>
           </div>
@@ -449,216 +671,158 @@ export default function ProductForm({ initialData, isEditing = false }: ProductF
 
         {/* Product Images, Gallery & Video */}
         <Card className="p-6 space-y-6">
-          <div className="space-y-6">
-            {/* Main Product Image */}
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label>Main Product Image</Label>
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted">
-                  <img
-                    src={formData.image}
-                    alt={formData.name || 'Product preview'}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="w-full">
-                  <Label htmlFor="image" className="cursor-pointer">
-                    <div className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors">
-                      <input
-                        id="image"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Upload className="h-4 w-4" />
-                        <span>{uploadLoading ? 'Uploading...' : 'Upload Main Image'}</span>
-                      </div>
+              <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 bg-gray-50">
+                {formData.image && formData.image !== '/placeholder.svg' ? (
+                  <div className="relative w-full">
+                    <img
+                      src={formData.image}
+                      alt="Product"
+                      className="w-full h-auto max-h-64 object-contain mx-auto"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-8 w-8 rounded-full"
+                      onClick={() => setFormData(prev => ({ ...prev, image: '/placeholder.svg' }))}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">Upload a main product image</p>
                     </div>
-                  </Label>
+                  </div>
+                )}
+                <div className="mt-4 w-full">
+                  <label className="w-full">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={uploadLoading}
+                    >
+                      {uploadLoading ? (
+                        'Uploading...'
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Image
+                        </>
+                      )}
+                    </Button>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleImageUpload}
+                      disabled={uploadLoading}
+                    />
+                  </label>
                 </div>
               </div>
             </div>
-            
-            {/* Additional Images Gallery */}
+
             <div className="space-y-2">
               <Label>Additional Images</Label>
-              
-              {/* Display existing additional images */}
-              {formData.images && formData.images.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  {formData.images.map((imageUrl, index) => (
-                    <div key={`gallery-${index}`} className="relative group">
-                      <img 
-                        src={imageUrl} 
-                        alt={`Product image ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-md"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(imageUrl)}
-                        className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label="Remove image"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {formData.images && formData.images.map((image, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={image}
+                      alt={`Product ${index + 1}`}
+                      className="w-full h-24 object-cover rounded-md"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleRemoveImage(image)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                
+                <div className="border-2 border-dashed rounded-md flex items-center justify-center p-4 h-24">
+                  <label className="cursor-pointer text-center">
+                    <div className="flex flex-col items-center">
+                      <Upload className="h-6 w-6 text-gray-400" />
+                      <span className="text-xs mt-1">Add Image</span>
                     </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Upload additional image */}
-              <div className="w-full">
-                <Label htmlFor="additional-image" className="cursor-pointer">
-                  <div className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors">
                     <input
-                      id="additional-image"
                       type="file"
+                      className="hidden"
                       accept="image/jpeg,image/png,image/webp"
                       onChange={handleAdditionalImageUpload}
-                      className="hidden"
+                      disabled={uploadingAdditionalImage}
                     />
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <ImageIcon className="h-4 w-4" />
-                      <span>{uploadingAdditionalImage ? 'Uploading...' : 'Add Gallery Image'}</span>
-                    </div>
-                  </div>
-                </Label>
+                  </label>
+                </div>
               </div>
             </div>
-            
-            {/* Product Video */}
+
             <div className="space-y-2">
-              <Label>Product Video</Label>
-              
-              {/* Display existing video */}
-              {formData.video ? (
-                <div className="relative mb-4 group">
-                  {/* Add debugging information */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      Raw Video URL: {formData.video}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Full Video URL: {formData.video.startsWith('http') 
-                        ? formData.video 
-                        : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${formData.video}`}
-                    </p>
-                    <div className="relative">
-                      {/* Use a more reliable video player approach */}
-                      <video 
-                        key={formData.video} // Add key to force re-render when URL changes
-                        className="w-full h-auto rounded-md"
-                        controls
-                        preload="metadata"
-                        onLoadStart={() => console.log('Video load started')}
-                        onLoadedData={() => console.log('Video data loaded successfully')}
-                        onError={(e) => {
-                          console.error('Video loading error:', e);
-                          toast.error('Error loading video. Please check console for details.');
-                        }}
-                      >
-                        {/* Use source element instead of src attribute for better browser compatibility */}
-                        <source 
-                          src={formData.video} 
-                          type={formData.video.endsWith('.mp4') ? 'video/mp4' : 
-                               formData.video.endsWith('.webm') ? 'video/webm' : 
-                               formData.video.endsWith('.mov') ? 'video/quicktime' : 
-                               'video/mp4'}
-                        />
-                        Your browser does not support the video tag.
-                      </video>
-                      
-                      {/* Add a direct link to the video for testing */}
-                      <div className="mt-2">
-                        <a 
-                          href={formData.video} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-500 hover:underline"
-                        >
-                          Open video in new tab
-                        </a>
-                      </div>
+              <Label>Product Video (Optional)</Label>
+              <div className="border-2 border-dashed rounded-lg p-4 bg-gray-50">
+                {formData.video ? (
+                  <div className="relative">
+                    <video
+                      src={formData.video}
+                      controls
+                      className="w-full h-auto max-h-64"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-8 w-8 rounded-full"
+                      onClick={handleRemoveVideo}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <Film className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">Upload a product video (optional)</p>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Video URL: {formData.video}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleRemoveVideo}
-                    className="absolute top-2 right-2 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-label="Remove video"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                )}
+                <div className="mt-4">
+                  <label className="w-full">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={uploadingVideo}
+                    >
+                      {uploadingVideo ? (
+                        'Uploading...'
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Video
+                        </>
+                      )}
+                    </Button>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="video/mp4,video/webm,video/quicktime"
+                      onChange={handleVideoUpload}
+                      disabled={uploadingVideo}
+                    />
+                  </label>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No video uploaded</p>
-              )}
-              
-              {/* Upload video */}
-              {!formData.video && (
-                <div className="w-full">
-                  <Label htmlFor="video" className="cursor-pointer">
-                    <div className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors">
-                      <input
-                        id="video"
-                        type="file"
-                        accept="video/mp4,video/webm,video/quicktime"
-                        onChange={handleVideoUpload}
-                        className="hidden"
-                      />
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Film className="h-4 w-4" />
-                        <span>{uploadingVideo ? 'Uploading...' : 'Upload Product Video'}</span>
-                      </div>
-                    </div>
-                  </Label>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Featured Product</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Display this product on the home page
-                  </p>
-                </div>
-                <Switch
-                  checked={formData.featured}
-                  onCheckedChange={(checked) => handleBooleanChange('featured', checked)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Best Seller</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Mark this product as a best seller
-                  </p>
-                </div>
-                <Switch
-                  checked={formData.bestSeller}
-                  onCheckedChange={(checked) => handleBooleanChange('bestSeller', checked)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>In Stock</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Product availability status
-                  </p>
-                </div>
-                <Switch
-                  checked={formData.inStock}
-                  onCheckedChange={(checked) => handleBooleanChange('inStock', checked)}
-                />
               </div>
             </div>
           </div>

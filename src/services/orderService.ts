@@ -29,6 +29,11 @@ export const orderService = {
         throw new Error(`Order with ID ${orderId} not found.`);
       }
       
+      // Check if the error is a 401 (Unauthorized)
+      if (error.response?.status === 401) {
+        throw new Error('You are not authorized to view this order.');
+      }
+      
       // Check if the error is a 500 (Server Error)
       if (error.response?.status === 500) {
         throw new Error('Server error. Please try again later.');
@@ -97,7 +102,7 @@ export const orderService = {
     status: OrderStatus
   ): Promise<Order> => {
     try {
-      const { data } = await api.patch<Order>(
+      const { data } = await api.put<Order>(
         `/orders/${orderId}/status`,
         { status }
       );
