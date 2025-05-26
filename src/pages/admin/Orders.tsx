@@ -64,6 +64,14 @@ export default function AdminOrders() {
     setSelectedOrderId(orderId);
     setShowOrderDetails(true);
   };
+
+  const handleCloseOrderDetails = () => {
+    setShowOrderDetails(false);
+    // Don't clear selectedOrderId immediately to prevent flickering
+    setTimeout(() => {
+      setSelectedOrderId(null);
+    }, 300); // Match the dialog transition duration
+  };
   
   // Show loading state
   if (loading) {
@@ -254,7 +262,7 @@ export default function AdminOrders() {
       <OrderDetails 
         orderId={selectedOrderId}
         open={showOrderDetails}
-        onOpenChange={setShowOrderDetails}
+        onOpenChange={handleCloseOrderDetails}
       />
     </div>
   );

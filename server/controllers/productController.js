@@ -220,8 +220,18 @@ const getProductById = async (req, res) => {
         return res.status(404).json({ message: "Product not found" });
       }
     }
+
+    let product;
     
-    const product = await Product.findById(req.params.id);
+    // First try to find by ID if it's a valid ObjectId
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      product = await Product.findById(req.params.id);
+    }
+    
+    // If not found by ID, try to find by slug
+    if (!product) {
+      product = await Product.findOne({ slug: req.params.id });
+    }
 
     if (product) {
       res.json(product);
@@ -229,12 +239,12 @@ const getProductById = async (req, res) => {
       res.status(404).json({ message: "Product not found" });
     }
   } catch (error) {
-    console.error(error);
+    console.error('Error in getProductById:', error);
     
     // Fallback to mock data on error
     try {
       const mockProducts = getMockData('products');
-      const product = mockProducts.find(p => p._id === req.params.id);
+      const product = mockProducts.find(p => p._id === req.params.id || p.slug === req.params.id);
       
       if (product) {
         return res.json(product);
@@ -262,7 +272,7 @@ const getProductBySlug = async (req, res) => {
         return res.status(404).json({ message: "Product not found" });
       }
     }
-    
+
     const product = await Product.findOne({ slug: req.params.slug });
 
     if (product) {
@@ -271,7 +281,7 @@ const getProductBySlug = async (req, res) => {
       res.status(404).json({ message: "Product not found" });
     }
   } catch (error) {
-    console.error(error);
+    console.error('Error in getProductBySlug:', error);
     
     // Fallback to mock data on error
     try {
@@ -302,98 +312,84 @@ const createProduct = async (req, res) => {
   try {
     console.log('Received product data:', req.body);
     console.log('Received files:', req.files);
-    
-    // Log video-specific information
-    if (req.files && req.files.video) {
-      console.log('Video file received:', req.files.video[0]);
-    }
-    if (req.body.video) {
-      console.log('Video URL in body:', req.body.video);
-    }
-    
+
+    // ✅ Destructure all required fields from req.body
     const {
       name,
       category,
-      price,
-      salePrice,
       description,
       shortDescription,
       featured,
       bestSeller,
       inStock,
-      weight,
       origin,
       tags,
-      image: existingImage, // Rename to avoid confusion
-      video: existingVideo, // Add video field
+      sizes,
+      image,
+      images,
+      video,
+      hasMultipleSizes,
+      basePrice,
+      baseSalePrice
     } = req.body;
 
-    // Get existing images from the form data
-    const existingImages = [];
-    Object.keys(req.body).forEach(key => {
-      if (key.startsWith('existingImages[')) {
-        existingImages.push(req.body[key]);
-      }
-    });
-
-    // Generate slug from name
     const slug = name
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "-")
       .replace(/-+/g, "-");
 
-    // Handle main image and additional images from file upload
-    let imagePath = existingImage || "";
-    let imagesPaths = [...existingImages];
+    // Handle images and video
+    let imagePath = image || "";
+    let imagesPaths = images || [];
+    let videoPath = video || "";
 
+    // If files were uploaded through multer, use those paths
     if (req.files?.image) {
-      imagePath = normalizeFilePath(req.files.image[0]);
-      console.log('Main image path:', imagePath);
+      imagePath = req.files.image[0].path;
     }
-
     if (req.files?.images) {
-      const newImages = req.files.images.map(file => normalizeFilePath(file));
+      const newImages = req.files.images.map((file) => file.path);
       imagesPaths = [...imagesPaths, ...newImages];
-      console.log('All image paths:', imagesPaths);
     }
-    
-    // Handle video upload
-    let videoPath = existingVideo || "";
     if (req.files?.video) {
-      videoPath = normalizeFilePath(req.files.video[0]);
-      console.log('Video path:', videoPath);
+      videoPath = req.files.video[0].path;
     }
 
-    // If we have an existing image URL, use it
-    if (existingImage && !imagePath) {
-      imagePath = existingImage;
-    }
-
-    // Validate image path
+    // Validate image
     if (!imagePath) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Image is required",
-        details: "Please provide either an image file or an image URL"
+        details: "Please provide either an image file or an image URL",
       });
     }
 
+    // ✅ Parse sizes if it comes as a JSON string from frontend
+    let parsedSizes = [];
+    try {
+      parsedSizes = typeof sizes === 'string' ? JSON.parse(sizes) : sizes;
+    } catch (e) {
+      console.error('Invalid sizes format:', sizes);
+    }
+
+    // ✅ Construct the product object
     const product = new Product({
       name,
       slug,
       category,
-      price,
-      salePrice,
       description,
-      shortDescription: shortDescription || description.substring(0, 100),
+      shortDescription: shortDescription || description?.substring(0, 100),
       image: imagePath,
       images: imagesPaths,
-      video: videoPath || existingVideo || '', // Use uploaded video or existing video
-      featured: featured === "true",
-      bestSeller: bestSeller === "true",
-      inStock: inStock === "true",
-      weight,
+      video: videoPath,
+      featured: featured === 'true' || featured === true,
+      bestSeller: bestSeller === 'true' || bestSeller === true,
+      inStock: inStock === 'true' || inStock === true,
       origin,
-      tags: tags ? tags.split(",").map((tag) => tag.trim()) : [],
+      hasMultipleSizes: hasMultipleSizes === 'true' || hasMultipleSizes === true,
+      basePrice: hasMultipleSizes ? undefined : Number(basePrice),
+      baseSalePrice: hasMultipleSizes ? undefined : Number(baseSalePrice),
+      sizes: hasMultipleSizes ? parsedSizes : [],
+      tags: tags ? tags.split(",").map((t) => t.trim()) : [],
       rating: 0,
       reviewCount: 0,
     });
@@ -403,10 +399,10 @@ const createProduct = async (req, res) => {
     res.status(201).json(createdProduct);
   } catch (error) {
     console.error("Product creation error:", error);
-    res.status(500).json({ 
-      message: "Server Error", 
+    res.status(500).json({
+      message: "Server Error",
       error: error.message,
-      details: error.errors
+      details: error.errors,
     });
   }
 };
@@ -420,13 +416,6 @@ const updateProduct = async (req, res) => {
     console.log('Update data:', req.body);
     console.log('Update files:', req.files);
     
-    // Log video-specific information
-    if (req.files && req.files.video) {
-      console.log('Video file received for update:', req.files.video[0]);
-    }
-    if (req.body.video) {
-      console.log('Video URL in update body:', req.body.video);
-    }
     const {
       name,
       category,
@@ -441,7 +430,8 @@ const updateProduct = async (req, res) => {
       origin,
       tags,
       existingImage,
-      video, // Add video field
+      existingImages,
+      video,
     } = req.body;
 
     const product = await Product.findById(req.params.id);
@@ -460,36 +450,34 @@ const updateProduct = async (req, res) => {
       product.category = category || product.category;
       product.price = price || product.price;
       product.salePrice = salePrice !== undefined ? salePrice : product.salePrice;
-      product.description = description || product.description;
-      product.shortDescription = shortDescription || product.shortDescription;
-
-      // Get existing images from the form data
-      const existingImages = [];
-      Object.keys(req.body).forEach(key => {
-        if (key.startsWith('existingImages[')) {
-          existingImages.push(req.body[key]);
-        }
-      });
+      
+      // Update description fields
+      if (description !== undefined) {
+        product.description = description;
+      }
+      if (shortDescription !== undefined) {
+        product.shortDescription = shortDescription;
+      }
 
       // Handle main image
       if (req.files?.image) {
-        product.image = normalizeImagePath(req.files.image[0]);
+        product.image = normalizeFilePath(req.files.image[0]);
       } else if (existingImage) {
         product.image = existingImage;
       }
 
       // Handle additional images
       if (req.files?.images) {
-        const newImages = req.files.images.map(file => normalizeImagePath(file));
-        product.images = [...existingImages, ...newImages];
-      } else {
-        product.images = existingImages;
+        const newImages = req.files.images.map(file => normalizeFilePath(file));
+        product.images = [...(existingImages || []), ...newImages];
+      } else if (existingImages) {
+        product.images = Array.isArray(existingImages) ? existingImages : [existingImages];
       }
 
       console.log('Updated images:', {
         main: product.image,
         additional: product.images
-      }); // Debug log
+      });
 
       product.featured = featured !== undefined ? featured === "true" : product.featured;
       product.bestSeller = bestSeller !== undefined ? bestSeller === "true" : product.bestSeller;
@@ -507,7 +495,7 @@ const updateProduct = async (req, res) => {
       }
 
       const updatedProduct = await product.save();
-      console.log('Updated product:', updatedProduct); // Debug log
+      console.log('Updated product:', updatedProduct);
       res.json(updatedProduct);
     } else {
       res.status(404).json({ message: "Product not found" });
@@ -605,6 +593,36 @@ const getBestSellerProducts = async (req, res) => {
   }
 };
 
+// @desc    Fetch products by IDs
+// @route   GET /api/products/by-ids
+// @access  Public
+const getProductsByIds = async (req, res) => {  
+  try {
+    const { ids } = req.query;
+    
+    if (!ids) {
+      return res.status(400).json({ message: "No product IDs provided" });
+    }
+    
+    const productIds = ids.split(',');
+    
+    if (useMockData) {
+      const mockProducts = getMockData('products');
+      const products = mockProducts.filter(p => productIds.includes(p._id.toString()));
+      return res.json({ products });
+    }
+    
+    const products = await Product.find({
+      _id: { $in: productIds }
+    });
+    
+    res.json({ products });
+  } catch (error) {
+    console.error('Error in getProductsByIds controller:', error);
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
 export {
   getProducts,
   getProductById,
@@ -615,4 +633,5 @@ export {
   getProductCategories,
   getFeaturedProducts,
   getBestSellerProducts,
+  getProductsByIds,
 };

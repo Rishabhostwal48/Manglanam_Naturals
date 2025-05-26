@@ -36,18 +36,38 @@ export function OrderDetails({
 }: OrderDetailsProps) {
   const { getOrderById, updateOrderStatus } = useOrders();
   const [order, setOrder] = useState<Order | null>(null);
-
+  const [isLoading, setIsLoading] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchOrder = async () => {
-      if (orderId) {
+      if (!orderId) return;
+      
+      setIsLoading(true);
+      try {
         const orderData = await getOrderById(orderId);
-        setOrder(orderData);
+        if (isMounted) {
+          setOrder(orderData);
+        }
+      } catch (error) {
+        console.error('Error fetching order:', error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
-    fetchOrder();
-  }, [orderId, getOrderById]);
+
+    if (open && orderId) {
+      fetchOrder();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [orderId, getOrderById, open]);
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -84,8 +104,15 @@ export function OrderDetails({
     }
   };
 
-  const handleStatusChange = (value: OrderStatus) => {
-    updateOrderStatus(order?._id!, value);
+  const handleStatusChange = async (value: OrderStatus) => {
+    if (!order?._id) return;
+    
+    try {
+      const updatedOrder = await updateOrderStatus(order._id, value);
+      setOrder(updatedOrder);
+    } catch (error) {
+      console.error('Error updating order status:', error);
+    }
   };
 
   return (

@@ -1,15 +1,16 @@
-
 import { useState, useRef,useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ChevronRight, Minus, Plus, ShoppingBag, ArrowLeft, Heart, Play, ChevronLeft, ChevronUp, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { productService } from '@/services/api';
 import { useCart } from '@/context/CartContext';
 import { ProductCard } from '@/components/ProductCard';
 import { formatCurrency } from '@/lib/utils';
 import { categories } from '@/data/products';
+import ProductMediaCarousel from '@/components/ProductMediaCarousel';
+import { toast } from 'react-hot-toast';
 
 
 interface ProductSize {
@@ -24,8 +25,9 @@ interface Product {
   name: string;
   slug: string;
   category: string;
-  price: number;
-  salePrice?: number;
+  hasMultipleSizes: boolean;
+  basePrice: number;
+  baseSalePrice?: number;
   description: string;
   shortDescription: string;
   image: string;
@@ -34,8 +36,7 @@ interface Product {
   featured: boolean;
   bestSeller: boolean;
   inStock: boolean;
-  weight: string; // For backward compatibility
-  origin: string; // For backward compatibility
+  origin: string;
   tags: string[];
   rating: number;
   sizes?: ProductSize[]; // Array of available sizes with their respective prices
@@ -52,31 +53,60 @@ const [showVideoModal, setShowVideoModal] = useState(false);
 const videoRef = useRef<HTMLVideoElement>(null);
 const [selectedSize, setSelectedSize] = useState<string>('');
 
-  // Fetch product data from API
+  // Get the query client
+  const queryClient = useQueryClient();
+
+  // Fetch product data from API or cache
   const { data: product, isLoading, error } = useQuery({
     queryKey: ['product', id],
     queryFn: async () => {
       if (!id) return null;
       try {
-        // Ensure id is a string, not an object
-        // At this point, we know id is not null or undefined
-        const productIdOrSlug = typeof id === 'object' ? id.toString() : id!;
-        console.log('Fetching product with ID or slug:', productIdOrSlug);
-        return await productService.getProductById(productIdOrSlug);
+        // First check if we have the product in the products cache
+        const cachedProducts = queryClient.getQueryData(['products']);
+        if (cachedProducts?.products) {
+          const cachedProduct = cachedProducts.products.find(
+            (p: Product) => p._id.toString() === id || p.slug === id
+          );
+          if (cachedProduct) {
+            console.log('Using cached product data');
+            return cachedProduct;
+          }
+        }
+
+        // If not in cache, fetch from API
+        console.log('Fetching product from API');
+        // Determine if the ID is a slug or ObjectId
+        const isSlug = id.includes('-') || !id.match(/^[0-9a-fA-F]{24}$/);
+        return await productService.getProductById(id, isSlug ? 'slug' : 'id');
       } catch (err) {
         console.error('Error fetching product:', err);
         throw err;
       }
     },
-    enabled: !!id // Only run the query if id exists
+    enabled: !!id
   });
   
-  // Fetch related products
+  // Fetch related products using cached data when possible
   const { data: relatedProductsData } = useQuery({
     queryKey: ['relatedProducts', product?.category],
     queryFn: async () => {
       if (!product?.category) return [];
       try {
+        // First check if we have products in cache
+        const cachedProducts = queryClient.getQueryData(['products']);
+        if (cachedProducts?.products) {
+          const relatedProducts = cachedProducts.products
+            .filter((p: Product) => p.category === product.category && p._id !== product._id)
+            .slice(0, 4);
+          if (relatedProducts.length > 0) {
+            console.log('Using cached related products');
+            return relatedProducts;
+          }
+        }
+
+        // If not enough in cache, fetch from API
+        console.log('Fetching related products from API');
         const data = await productService.getProducts({ category: product.category });
         return data.products.filter(p => p._id !== product._id).slice(0, 4);
       } catch (err) {
@@ -91,32 +121,38 @@ const [selectedSize, setSelectedSize] = useState<string>('');
   
   // Set default selected size when product loads
   useEffect(() => {
-    if (product && product.sizes && product.sizes.length > 0) {
-      // Default to first available size
-      const defaultSize = product.sizes.find(s => s.inStock) || product.sizes[0];
-      setSelectedSize(defaultSize.size);
-    } else if (product && product.weight) {
-      // Fallback to legacy weight field
-      setSelectedSize(product.weight);
+    if (product) {
+      if (product.hasMultipleSizes && product.sizes && product.sizes.length > 0) {
+        // Default to first available size for multi-size products
+        const defaultSize = product.sizes.find(s => s.inStock) || product.sizes[0];
+        setSelectedSize(defaultSize.size);
+      } else {
+        // For single-price products, no size selection needed
+        setSelectedSize('');
+      }
     }
   }, [product]);
   
   // Get current price based on selected size
-  const getCurrentPrice = (): { price: number, salePrice?: number } => {
-    if (!product) return { price: 0 };
+  const getCurrentPrice = (): { price: number, salePrice?: number, inStock: boolean } => {
+    if (!product) return { price: 0, inStock: false };
     
-    if (!product.sizes || product.sizes.length === 0) {
-      return { price: product.price, salePrice: product.salePrice };
+    if (product.hasMultipleSizes && product.sizes && product.sizes.length > 0) {
+      const sizeInfo = product.sizes.find(s => s.size === selectedSize);
+      if (sizeInfo) {
+        return { 
+          price: sizeInfo.price, 
+          salePrice: sizeInfo.salePrice,
+          inStock: sizeInfo.inStock 
+        };
+      }
     }
     
-    // Find the selected size
-    const sizeInfo = product.sizes.find(s => s.size === selectedSize);
-    if (sizeInfo) {
-      return { price: sizeInfo.price, salePrice: sizeInfo.salePrice };
-    }
-    
-    // Fallback to default
-    return { price: product.price, salePrice: product.salePrice };
+    return { 
+      price: product.basePrice, 
+      salePrice: product.baseSalePrice,
+      inStock: product.inStock 
+    };
   };
   
   if (isLoading) {
@@ -148,7 +184,18 @@ const [selectedSize, setSelectedSize] = useState<string>('');
   };
   
   const handleAddToCart = () => {
-    addItem(product, quantity);
+    if (product.hasMultipleSizes && !selectedSize) {
+      toast.error("Please select a size");
+      return;
+    }
+    
+    const currentPrice = getCurrentPrice();
+    addItem({
+      ...product,
+      selectedSize: product.hasMultipleSizes ? selectedSize : null,
+      price: currentPrice.price,
+      salePrice: currentPrice.salePrice
+    }, selectedSize, quantity);
   };
   
   // Get category name for display
@@ -161,6 +208,30 @@ const [selectedSize, setSelectedSize] = useState<string>('');
       case 'exotic': return 'Exotic Spices';
       default: return categoryId;
     }
+  };
+  
+  // Video modal component
+  const VideoModal = ({ isOpen, onClose, videoUrl }: { isOpen: boolean; onClose: () => void; videoUrl: string }) => {
+    if (!isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
+        <div className="relative w-full max-w-4xl mx-4">
+          <button
+            onClick={onClose}
+            className="absolute -top-10 right-0 text-white hover:text-gray-300"
+          >
+            Close
+          </button>
+          <video
+            src={videoUrl}
+            controls
+            className="w-full aspect-video"
+            autoPlay
+          />
+        </div>
+      </div>
+    );
   };
   
   return (
@@ -203,81 +274,11 @@ const [selectedSize, setSelectedSize] = useState<string>('');
         <div className="grid md:grid-cols-2 gap-8">
           {/* Product Images Gallery */}
           <div className="space-y-4">
-            {/* Main Image Display */}
-            <div className="rounded-lg overflow-hidden border bg-white p-4 relative">
-              {/* Display selected image from gallery or main image */}
-              <img
-                src={product.images && product.images.length > 0 
-                  ? product.images[selectedImage] 
-                  : product.image}
-                alt={product.name}
-                className="w-full h-auto object-contain aspect-square"
-              />
-              
-              {/* Video Play Button (if video exists) */}
-              {product.video && (
-                <button 
-                  onClick={() => setShowVideoModal(true)}
-                  className="absolute bottom-4 right-4 bg-primary text-white p-2 rounded-full hover:bg-primary/90 transition-colors"
-                  aria-label="Play product video"
-                >
-                  <Play className="h-6 w-6" />
-                </button>
-              )}
-            </div>
-            
-            {/* Thumbnails Gallery */}
-            {(product.images && product.images.length > 0) && (
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {/* Main product image as first thumbnail */}
-                <button
-                  onClick={() => setSelectedImage(0)}
-                  className={`flex-shrink-0 border-2 rounded overflow-hidden ${
-                    selectedImage === 0 ? 'border-primary' : 'border-transparent'
-                  }`}
-                >
-                  <img 
-                    src={product.images[0]} 
-                    alt={`${product.name} - thumbnail 1`}
-                    className="w-16 h-16 object-cover"
-                  />
-                </button>
-                
-                {/* Additional images */}
-                {product.images.slice(1).map((image, index) => (
-                  <button
-                    key={`thumb-${index + 1}`}
-                    onClick={() => setSelectedImage(index + 1)}
-                    className={`flex-shrink-0 border-2 rounded overflow-hidden ${
-                      selectedImage === index + 1 ? 'border-primary' : 'border-transparent'
-                    }`}
-                  >
-                    <img 
-                      src={image} 
-                      alt={`${product.name} - thumbnail ${index + 2}`}
-                      className="w-16 h-16 object-cover"
-                    />
-                  </button>
-                ))}
-                
-                {/* Video thumbnail (if video exists) */}
-                {product.video && (
-                  <button
-                    onClick={() => setShowVideoModal(true)}
-                    className="flex-shrink-0 border-2 border-transparent rounded overflow-hidden relative"
-                  >
-                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                      <Play className="h-6 w-6 text-white" />
-                    </div>
-                    <img 
-                      src={product.image} // Use main image as video thumbnail
-                      alt={`${product.name} - video`}
-                      className="w-16 h-16 object-cover"
-                    />
-                  </button>
-                )}
-              </div>
-            )}
+            <ProductMediaCarousel
+              mainImage={product.image}
+              additionalImages={product.images || []}
+              video={product.video}
+            />
           </div>
           
           {/* Product Info */}
@@ -291,19 +292,42 @@ const [selectedSize, setSelectedSize] = useState<string>('');
               </Link>
               <h1 className="text-3xl font-playfair font-bold mt-1">{product.name}</h1>
               
-              <div className="mt-4 flex items-center">
-                {product.salePrice ? (
-                  <div className="flex items-center">
-                    <span className="text-2xl font-semibold text-destructive">{formatCurrency(product.salePrice)}</span>
-                    <span className="ml-2 text-lg text-gray-500 line-through">{formatCurrency(product.price)}</span>
-                    <span className="ml-2 bg-destructive/10 text-destructive px-2 py-0.5 rounded text-sm">
-                      Save {Math.round((1 - product.salePrice / product.price) * 100)}%
-                    </span>
-                  </div>
+              {/* Price Display */}
+              <div className="mt-4">
+                {product.hasMultipleSizes ? (
+                  <>
+                    <label htmlFor="size-select" className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Size
+                    </label>
+                    <select
+                      id="size-select"
+                      value={selectedSize}
+                      onChange={(e) => setSelectedSize(e.target.value)}
+                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
+                    >
+                      {product.sizes?.map((size) => (
+                        <option key={size.size} value={size.size} disabled={!size.inStock}>
+                          {size.size} - ₹{formatCurrency(size.price)}
+                          {!size.inStock && " (Out of Stock)"}
+                        </option>
+                      ))}
+                    </select>
+                  </>
                 ) : (
-                  <span className="text-2xl font-semibold">{formatCurrency(product.price)}</span>
+                  <div className="text-2xl font-bold text-gray-900">
+                    ₹{formatCurrency(product.basePrice)}
+                    {product.baseSalePrice && (
+                      <>
+                        <span className="ml-2 text-lg line-through text-gray-500">
+                          ₹{formatCurrency(product.baseSalePrice)}
+                        </span>
+                        <span className="ml-2 text-sm text-green-600">
+                          {Math.round(((product.baseSalePrice - product.basePrice) / product.baseSalePrice) * 100)}% OFF
+                        </span>
+                      </>
+                    )}
+                  </div>
                 )}
-                <span className="ml-2 text-sm text-gray-500">/ {product.weight}</span>
               </div>
             </div>
             
@@ -329,57 +353,36 @@ const [selectedSize, setSelectedSize] = useState<string>('');
             
             <Separator />
             
-            <div>
-              <div className="flex flex-col sm:flex-row gap-4">
-                {/* Quantity Selector */}
-                <div className="flex items-center border rounded-full overflow-hidden">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-10 w-10 rounded-none"
+            <div className="mt-6">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center border rounded-lg">
+                  <button
                     onClick={decrementQuantity}
-                    disabled={quantity <= 1}
+                    className="p-2 hover:bg-gray-100 rounded-l-lg"
+                    aria-label="Decrease quantity"
                   >
                     <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-10 text-center">{quantity}</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-10 w-10 rounded-none"
+                  </button>
+                  <span className="px-4 py-2 text-gray-900">{quantity}</span>
+                  <button
                     onClick={incrementQuantity}
+                    className="p-2 hover:bg-gray-100 rounded-r-lg"
+                    aria-label="Increase quantity"
                   >
                     <Plus className="h-4 w-4" />
-                  </Button>
+                  </button>
                 </div>
                 
-                {/* Add to Cart Button */}
-                <div className="flex-1 grid grid-cols-5 gap-2">
-                  <Button 
-                    className="col-span-4" 
-                    size="lg"
-                    variant="cardamom"
-                    rounded="full"
-                    onClick={handleAddToCart}
-                  >
-                    <ShoppingBag className="h-5 w-5 mr-2" />
-                    Add to Cart
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    rounded="full"
-                    className="h-11 w-11"
-                  >
-                    <Heart className="h-5 w-5" />
-                  </Button>
-                </div>
+                <Button
+                  onClick={handleAddToCart}
+                  variant="cardamom"
+                  className="flex-1 py-6"
+                  disabled={product.hasMultipleSizes && !selectedSize}
+                >
+                  <ShoppingBag className="mr-2 h-5 w-5" />
+                  Add to Cart
+                </Button>
               </div>
-              
-              <p className="text-sm text-gray-500 mt-4">
-                Free shipping for orders over $50
-              </p>
             </div>
           </div>
         </div>
@@ -404,38 +407,11 @@ const [selectedSize, setSelectedSize] = useState<string>('');
       )}
       
       {/* Video Modal */}
-      {showVideoModal && product.video && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="relative bg-white rounded-lg w-full max-w-4xl">
-            <div className="p-4 flex justify-between items-center border-b">
-              <h3 className="font-semibold">{product.name} - Video</h3>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => {
-                  setShowVideoModal(false);
-                  if (videoRef.current) {
-                    videoRef.current.pause();
-                  }
-                }}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-            <div className="p-4">
-              <video 
-                ref={videoRef}
-                src={product.video} 
-                controls 
-                className="w-full h-auto"
-                autoPlay
-              >
-                Your browser does not support the video tag.
-              </video>
-            </div>
-          </div>
-        </div>
-      )}
+      <VideoModal
+        isOpen={showVideoModal}
+        onClose={() => setShowVideoModal(false)}
+        videoUrl={product.video || ''}
+      />
     </div>
   );
 }

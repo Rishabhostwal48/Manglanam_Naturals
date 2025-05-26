@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { Product } from "../data/products";
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 
 export interface CartItem {
   product: Product;
   quantity: number;
+  size: string | null;
+  price: number;
+  salePrice?: number;
 }
 
 interface CartState {
@@ -14,9 +17,9 @@ interface CartState {
 }
 
 type CartAction = 
-  | { type: 'ADD_ITEM'; payload: { product: Product; quantity: number } }
-  | { type: 'REMOVE_ITEM'; payload: { productId: string } }
-  | { type: 'UPDATE_QUANTITY'; payload: { productId: string; quantity: number } }
+  | { type: 'ADD_ITEM'; payload: { product: Product; quantity: number; size: string; price: number; salePrice?: number } }
+  | { type: 'REMOVE_ITEM'; payload: { productId: string; size: string } }
+  | { type: 'UPDATE_QUANTITY'; payload: { productId: string; size: string; quantity: number } }
   | { type: 'CLEAR_CART' }
   | { type: 'OPEN_CART' }
   | { type: 'CLOSE_CART' }
@@ -54,18 +57,22 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     case 'ADD_ITEM': {
       // Normalize the product ID for consistent comparison
       const productId = normalizeProductId(action.payload.product._id);
+      const size = action.payload.size;
       
-      // Find existing item by normalized ID
+      // Find existing item by normalized ID and size
       const existingItem = state.items.find(item => 
-        normalizeProductId(item.product._id) === productId
+        normalizeProductId(item.product._id) === productId && item.size === size
       );
 
       if (existingItem) {
         return {
           ...state,
           items: state.items.map(item =>
-            normalizeProductId(item.product._id) === productId
-              ? { ...item, quantity: item.quantity + action.payload.quantity }
+            normalizeProductId(item.product._id) === productId && item.size === size
+              ? { 
+                  ...item, 
+                  quantity: item.quantity + action.payload.quantity 
+                }
               : item
           ),
         };
@@ -73,7 +80,16 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 
       return {
         ...state,
-        items: [...state.items, { product: action.payload.product, quantity: action.payload.quantity }],
+        items: [
+          ...state.items, 
+          { 
+            product: action.payload.product, 
+            quantity: action.payload.quantity, 
+            size: action.payload.size,
+            price: action.payload.price,
+            salePrice: action.payload.salePrice
+          }
+        ],
       };
     }
     
@@ -81,8 +97,8 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       return {
         ...state,
         items: state.items.filter(item => 
-          normalizeProductId(item.product._id) !== action.payload.productId
-        ),
+          !(normalizeProductId(item.product._id) === action.payload.productId && 
+            item.size === action.payload.size)),
       };
     }
     
@@ -90,7 +106,8 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       return {
         ...state,
         items: state.items.map(item =>
-          normalizeProductId(item.product._id) === action.payload.productId
+          normalizeProductId(item.product._id) === action.payload.productId && 
+          item.size === action.payload.size
             ? { ...item, quantity: action.payload.quantity }
             : item
         ),
@@ -139,9 +156,9 @@ export interface CartContextType {
   items: CartItem[];
   isOpen: boolean;
   loading: boolean;
-  addItem: (product: Product, quantity?: number) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addItem: (product: Product, size: string | null, quantity?: number) => void;
+  removeItem: (productId: string, size: string) => void;
+  updateQuantity: (productId: string, size: string, quantity: number) => void;
   clearCart: () => void;
   openCart: () => void;
   closeCart: () => void;
@@ -197,8 +214,37 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [state.items]);
   
-  const addItem = (product: Product, quantity: number = 1) => {
+  // Helper function to get price for the selected size
+  const getSizePriceInfo = (product: Product, size: string | null): { price: number; salePrice?: number } => {
+    if (!product.hasMultipleSizes || !size) {
+      return { 
+        price: product.basePrice || product.price || 0,
+        salePrice: product.baseSalePrice || product.salePrice
+      };
+    }
+    
+    if (product.sizes && Array.isArray(product.sizes)) {
+      const sizeInfo = product.sizes.find(s => s.size === size);
+      if (sizeInfo) {
+        return {
+          price: sizeInfo.price,
+          salePrice: sizeInfo.salePrice
+        };
+      }
+    }
+    
+    // Fallback to base price if size not found
+    return { 
+      price: product.basePrice || product.price || 0,
+      salePrice: product.baseSalePrice || product.salePrice
+    };
+  };
+  
+  const addItem = (product: Product, size: string | null, quantity: number = 1) => {
     try {
+      // Get price info for the selected size
+      const { price, salePrice } = getSizePriceInfo(product, size);
+      
       // Ensure product has a valid string ID before adding to cart
       const normalizedProduct = {
         ...product,
@@ -206,60 +252,57 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ? (product._id?.toString() || product.id?.toString() || Math.random().toString()) 
           : (product._id || product.id || Math.random().toString())
       };
-      
-      // Check if the product already exists in the cart
-      const productId = normalizeProductId(normalizedProduct._id);
-      const existingItem = state.items.find(item => 
-        normalizeProductId(item.product._id) === productId
-      );
-      
-      // Dispatch the action to add the item
-      dispatch({ type: 'ADD_ITEM', payload: { product: normalizedProduct, quantity } });
-      
-      // Show a toast notification in a separate effect to avoid React warnings
-      const message = existingItem 
-        ? `Updated ${product.name} quantity in cart` 
-        : `Added ${product.name} to cart`;
-      
-      // Use setTimeout to move the toast call out of the render phase
-      setTimeout(() => toast.success(message), 0);
+
+      dispatch({
+        type: 'ADD_ITEM',
+        payload: {
+          product: normalizedProduct,
+          quantity,
+          size: size || (product.weight || ''),
+          price,
+          salePrice
+        }
+      });
+
+      toast.success('Added to cart');
     } catch (error) {
       console.error('Error adding item to cart:', error);
-      setTimeout(() => toast.error('Failed to add item to cart'), 0);
+      toast.error('Failed to add item to cart');
     }
   };
   
-  const removeItem = (productId: string) => {
+  const removeItem = (productId: string, size: string) => {
     try {
       // Find the product name for the toast message
-      const item = state.items.find(item => normalizeProductId(item.product._id) === productId);
+      const item = state.items.find(item => 
+        normalizeProductId(item.product._id) === productId && item.size === size
+      );
       const productName = item ? item.product.name : 'Item';
-      
-      dispatch({ type: 'REMOVE_ITEM', payload: { productId } });
-      
-      // Show toast outside of render phase
-      setTimeout(() => toast.success(`${productName} removed from cart`), 0);
+      dispatch({ type: 'REMOVE_ITEM', payload: { productId, size } });
+      setTimeout(() => toast.success(`${productName} (${size}) removed from cart`), 0);
     } catch (error) {
       console.error('Error removing item from cart:', error);
       setTimeout(() => toast.error('Failed to remove item from cart'), 0);
     }
   };
   
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (productId: string, size: string, quantity: number) => {
     try {
       if (quantity < 1) {
-        removeItem(productId);
+        removeItem(productId, size);
         return;
       }
       
       // Find the product name for the toast message
-      const item = state.items.find(item => normalizeProductId(item.product._id) === productId);
+      const item = state.items.find(item => 
+        normalizeProductId(item.product._id) === productId && item.size === size
+      );
       const productName = item ? item.product.name : 'Item';
       
-      dispatch({ type: 'UPDATE_QUANTITY', payload: { productId, quantity } });
+      dispatch({ type: 'UPDATE_QUANTITY', payload: { productId, size, quantity } });
       
       // Show toast outside of render phase
-      setTimeout(() => toast.success(`Updated ${productName} quantity`), 0);
+      setTimeout(() => toast.success(`Updated ${productName} (${size}) quantity`), 0);
     } catch (error) {
       console.error('Error updating quantity:', error);
       setTimeout(() => toast.error('Failed to update quantity'), 0);
@@ -286,9 +329,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'CLOSE_CART' });
   };
   
-  // Calculate cart total
+  // Calculate cart total - use the stored price from the items
   const cartTotal = state.items.reduce(
-    (total, item) => total + (item.product.price * item.quantity), 
+    (total, item) => {
+      const effectivePrice = item.salePrice || item.price;
+      return total + (effectivePrice * item.quantity);
+    }, 
     0
   );
   
@@ -334,8 +380,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const orderItems = state.items.map(item => ({
         product: getProductId(item.product),
         name: item.product.name,
-        price: item.product.price,
+        price: item.price,
+        salePrice: item.salePrice,
         quantity: item.quantity,
+        size: item.size,
         image: item.product.image
       }));
 

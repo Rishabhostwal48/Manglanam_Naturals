@@ -14,12 +14,28 @@ const Orders = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect to login if not authenticated
-  React.useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login', { state: { from: '/orders' } });
-    }
-  }, [isAuthenticated, navigate]);
+  // Show a message for non-authenticated users instead of redirecting
+  if (!isAuthenticated) {
+    return (
+      <div className="container-custom py-20">
+        <div className="text-center">
+          <ShoppingBag className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h1 className="font-serif text-2xl mb-4">Please Log In to View Orders</h1>
+          <p className="text-gray-600 mb-6">
+            You need to be logged in to view your order history.
+          </p>
+          <div className="space-x-4">
+            <Button onClick={() => navigate('/login', { state: { from: '/orders' } })}>
+              Log In
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/products')}>
+              Continue Shopping
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return null;

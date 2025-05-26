@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Award, Users, ThumbsUp } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Award, Users, ThumbsUp, Flame, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ProductCard';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -36,6 +36,11 @@ export default function Home() {
 
   const heroImages = [
     {
+      src: "/images/manglanam.png",
+      alt: "Natural spices",
+      // title: "Pure and natural spices"
+    },
+    {
       src: "/1.png",
       alt: "Assorted premium spices",
       title: "Premium Spice Collection",
@@ -47,12 +52,6 @@ export default function Home() {
       title: "Exotic Spice Blends",
       subtitle: "Discover unique flavor combinations"
     },
-    {
-      src: "/placeholder.svg",
-      alt: "Organic spices",
-      title: "100% Organic",
-      subtitle: "Pure and natural spices"
-    }
   ];
 
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -73,9 +72,8 @@ export default function Home() {
           {heroImages.map((image, index) => (
             <div
               key={index}
-              className={`absolute inset-0 transition-opacity duration-1000 ${
-                index === currentSlide ? 'opacity-100' : 'opacity-0'
-              }`}
+              className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'
+                }`}
             >
               <img
                 src={image.src}
@@ -95,9 +93,8 @@ export default function Home() {
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`h-2 w-2 md:h-3 md:w-3 rounded-full transition-colors ${
-                  index === currentSlide ? 'bg-white' : 'bg-white/50'
-                }`}
+                className={`h-2 w-2 md:h-3 md:w-3 rounded-full transition-colors ${index === currentSlide ? 'bg-white' : 'bg-white/50'
+                  }`}
                 aria-label={`Go to slide ${index + 1}`}
               />
             ))}
@@ -106,9 +103,9 @@ export default function Home() {
       </section>
 
       {/* Main Heading Section */}
-      <section className="py-16 bg-white">
+      {/* <section className="py-16 bg-white">
         <div className="container-custom">
-          <div className="md:w-2/3 mx-auto text-center">
+          <div className="md:w-2/3  text-center flex flex-col items-left">
             <span className="inline-block text-primary font-medium mb-2">Premium Spice Collection</span>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-playfair font-bold leading-tight mb-4">
               Authentic Spices,<br />
@@ -125,6 +122,50 @@ export default function Home() {
               <Button size="lg" rounded="full" variant="outline" asChild>
                 <Link to="/about">Our Story</Link>
               </Button>
+              <img src="./images/yash.jpg" alt="Yash Jain" className="w-20px h-18px rounded-full" />
+            </div>
+          </div>
+        </div>
+      </section> */}
+
+
+      <section className="relative py-32 mt-16 bg-gray-50">
+        <div className="container-custom">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div className="text-center lg:text-left">
+              <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight mb-6">
+                Discover the world premium spices at{" "}
+                <span className="text-spice-500">Manglanam Naturals </span>
+              </h1>
+              <p className="text-lg text-cardamom font-bold mb-8 max-w-lg mx-auto lg:mx-0">
+                “I Bilive in Real Flavor - No Artificial Flavors, No Preservatives, No Additives. Crafted with love and care, inspired by heritage from my home to yours.”
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                <Button asChild className="btn-primary">
+                  <Link to="/shop">Shop Collection</Link>
+                </Button>
+                <Button asChild variant="outline" className="btn-secondary">
+                  <Link to="/about">Our Story</Link>
+                </Button>
+              </div>
+            </div>
+            <div className="relative">
+              <img
+                src="./images/yash.jpg"
+                alt="Assorted spices"
+                className="rounded-full shadow-lg h-25"
+              />
+              <div className="absolute -bottom-6 -left-6 bg-white p-4 rounded-lg shadow-md hidden md:block">
+                <div className="flex items-center gap-3">
+                  <div className="bg-spice-50 p-2 rounded-full">
+                    <CheckCircle className="h-6 w-6 text-spice-500" />
+                  </div>
+                  <div>
+                    <p className="flex font-bold text-2xl">Yashraj Jain</p>
+                    <p className="text-sm text-gray font-bold">Founder</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -200,38 +241,37 @@ export default function Home() {
           <h2 className="text-3xl font-playfair font-bold text-center mb-10">Why Customers Trust Us</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 md:row-span-2 bg-white p-8 rounded-lg shadow-sm text-center hover-scale">
-              <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-cardamom/10 text-cardamom mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-semibold mb-4">Freshness Focus</h3>
-              <p className="text-gray-600 text-lg mb-4">
-                Our spices are small-batch processed to preserve freshness, aroma, and potent flavors in every jar.
-              </p>
-              <p className="text-gray-600">
-                We follow strict quality control processes to ensure your spices are always at their peak.
-              </p>
-            </div>
 
             {/* Trust Cards */}
             <Card className="p-6 text-center flex flex-col items-center hover-scale">
+              <Flame className="h-10 w-10 text-primary mb-4" />
+
+              <h3 className="font-semibold mb-2">Freshness Focusc</h3>
+              <p className="text-sm text-gray-600">Our spices are small-batch processed to preserve freshness, aroma, and potent flavors in every jar.</p>
+            </Card>
+
+            <Card className="p-6 text-center flex flex-col items-center hover-scale">
               <ShieldCheck className="h-10 w-10 text-primary mb-4" />
-              <h3 className="font-semibold mb-2">100% Authentic</h3>
+              <h3 className="font-semibold mb-2">Farm Sourced</h3>
+              <p className="text-sm text-gray-600">Directly from farm to your kitchen</p>
+            </Card>
+
+            <Card className="p-6 text-center flex flex-col items-center hover-scale">
+              <img src="/images/FSSAI.svg" alt="Freshness" className="h-25 w-20 mb-4" />
+              <h3 className="font-semibold mb-2">Aproved by FSSAI</h3>
               <p className="text-sm text-gray-600">Certified authentic and tested for quality</p>
             </Card>
 
             <Card className="p-6 text-center flex flex-col items-center hover-scale">
-              <Award className="h-10 w-10 text-cardamom mb-4" />
-              <h3 className="font-semibold mb-2">Award Winning</h3>
+              <img src="/images/pepper.svg" alt="Rating" className="h-10 w-10 mb-4" />
+              <h3 className="font-semibold mb-2">High Grade Spices Pure & Unadulterated</h3>
               <p className="text-sm text-gray-600">Multiple awards for quality and sustainability</p>
             </Card>
 
             <Card className="p-6 text-center flex flex-col items-center hover-scale">
               <Users className="h-10 w-10 text-turmeric mb-4" />
-              <h3 className="font-semibold mb-2">10,000+ Customers</h3>
-              <p className="text-sm text-gray-600">Trusted by thousands worldwide</p>
+              <h3 className="font-semibold mb-2">1lac+ Customers</h3>
+              <p className="text-sm text-gray-600">Trusted by Millions </p>
             </Card>
 
             <Card className="p-6 text-center flex flex-col items-center hover-scale">
@@ -240,6 +280,39 @@ export default function Home() {
               <p className="text-sm text-gray-600">Excellent reviews across platforms</p>
             </Card>
 
+          </div>
+        </div>
+      </section>
+      <section className="relative py-32  bg-white">
+        <div className="container-custom">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div className="text-center lg:text-left">
+              <h1 className="font-serif text-3xl md:text-5xl font-bold leading-tight mb-6">
+                Meet our{" "}
+                <span className="text-spice-500">Quality Controller</span>
+              </h1>
+              <p className="text-lg text-gray-600 mb-8 max-w-lg mx-auto lg:mx-0">
+              With a legacy of over 80 years, our co-founder proudly carries forward a family spice business started by her grandfather. Known and trusted locally for decades, we continue to serve with the same passion, quality, and dedication..
+              </p>
+            </div>
+            <div className="relative">
+              <img
+                src="./images/yash.jpg"
+                alt="Rajesh Jhamer"
+                className="rounded-full h-60 mx-auto shadow-lg"
+              />
+              <div className="absolute -bottom-1 -left-1 bg-white p-3 rounded-lg shadow-md hidden md:block">
+                <div className="flex items-center gap-2">
+                  <div className="bg-spice-50  rounded-full">
+                    <CheckCircle className="h-6 w-6 text-spice-500" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-xl">Rajesh Jhamer</p>
+                    <p className="text-sm text-gray-500">Co-Founder & <br /> Quality Controller</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

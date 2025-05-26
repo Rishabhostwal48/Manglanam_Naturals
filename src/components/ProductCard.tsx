@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ShoppingBag, Heart } from 'lucide-react';
@@ -44,6 +43,7 @@ interface Product {
   bestSeller?: boolean;
   inStock?: boolean;
   weight?: string;
+  sizes?: { size: string }[];
 }
 
 interface ProductCardProps {
@@ -122,7 +122,7 @@ export function ProductCard({ product }: ProductCardProps) {
               size="sm"
               variant="cardamom"
               rounded="full"
-              onClick={() => addItem(product)}
+              onClick={() => addItem(product, product.sizes ? product.sizes[0]?.size : undefined, 1)}
             >
               <ShoppingBag className="h-4 w-4 mr-2" />
               Add

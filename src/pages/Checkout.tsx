@@ -26,13 +26,15 @@ import {
 import { Loader2, MapPin } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import RazorpayCheckout from '@/components/checkout/RazorpayCheckout';
 import { useOrders } from '@/context/OrderContext';
+import api from '@/services/api';
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
   email: z.string().email('Valid email is required'),
+  whatsappNumber: z.string().optional(),
   phone: z.string().min(10, 'Phone number is required'),
   address: z.string().min(5, 'Address is required'),
   city: z.string().min(2, 'City is required'),
@@ -64,6 +66,7 @@ const Checkout = () => {
     defaultValues: {
       fullName: user?.name || '',
       email: user?.email || '',
+      whatsappNumber: user?.whatsappNumber || '',
       phone: '',
       address: '',
       city: '',
@@ -101,6 +104,7 @@ const Checkout = () => {
         fullName: values.fullName,
         email: values.email,
         phone: values.phone,
+        whatsappNumber: values.whatsappNumber,
         street: values.address,
         city: values.city,
         state: '', // Add state field to form if needed
@@ -110,26 +114,40 @@ const Checkout = () => {
 
       // Format cart items to match OrderItem interface
       const orderItems = cart.map(item => ({
-        id: item.product._id?.toString() || item.product.id?.toString() || '',
+        product: item.product._id,
         name: item.product.name,
-        price: item.product.salePrice || item.product.price,
+        size: item.size,
         quantity: item.quantity,
+        price: item.product.price,
         image: item.product.image
       }));
 
+      // Calculate prices
+      const itemsPrice = cart.reduce((total, item) => 
+        total + (item.product.salePrice || item.product.price) * item.quantity, 
+        0
+      );
+      const taxPrice = itemsPrice * 0.1; // 10% tax
+      const shippingPrice = itemsPrice > 1000 ? 0 : 100; // Free shipping over ₹1000
+      const totalPrice = itemsPrice + taxPrice + shippingPrice;
+
       // Create order
       const order = await createOrder({
-        userId: user?.id || 'guest',
-        customerId: user?.id || 'guest',
-        customerName: values.fullName,
-        customerEmail: values.email,
-        items: orderItems,
-        status: 'pending',
+        orderItems,
         shippingAddress,
         paymentMethod: values.paymentMethod,
-        paymentStatus: 'pending',
-        total: totalAmount,
+        itemsPrice,
+        taxPrice,
+        shippingPrice,
+        totalPrice,
+        isPaid: false,
+        isDelivered: false,
+        status: 'pending'
       });
+
+      if (!order || !order._id) {
+        throw new Error('Failed to create order');
+      }
 
       setOrderId(order._id);
       
@@ -137,7 +155,7 @@ const Checkout = () => {
       setCustomerInfo({
         name: values.fullName,
         email: values.email,
-        phone: values.phone
+        whatsappNumber: values.whatsappNumber
       });
       
       if (values.paymentMethod === 'razorpay') {
@@ -150,9 +168,10 @@ const Checkout = () => {
         toast.success('Order placed successfully!');
         navigate(`/order-confirmation/${order._id}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Checkout error:', error);
-      toast.error('Error processing your order. Please try again.');
+      toast.error(error.response?.data?.message || 'Error processing your order. Please try again.');
+      setShowRazorpay(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -160,27 +179,39 @@ const Checkout = () => {
 
   const handlePaymentSuccess = async (paymentId: string, razorpayOrderId: string, signature: string) => {
     try {
-      // Here you would typically verify the payment with your backend
-      console.log('Payment successful:', { paymentId, razorpayOrderId, signature, orderId });
-      
       if (!orderId) {
         console.error('No order ID available for payment confirmation');
         toast.error('Error processing payment: No order ID');
         return;
       }
-      
-      // Clear cart and navigate to order confirmation
-      clearCart();
-      navigate(`/order-confirmation/${orderId}`);
-    } catch (error) {
+
+      // Verify payment with backend
+      const response = await api.post('/payments/verify-razorpay', {
+        razorpay_order_id: razorpayOrderId,
+        razorpay_payment_id: paymentId,
+        razorpay_signature: signature,
+        orderId
+      });
+
+      if (response.data.isPaid) {
+        // Clear cart and navigate to order confirmation
+        await checkout('razorpay');
+        clearCart();
+        toast.success('Payment successful!');
+        navigate(`/order-confirmation/${orderId}`);
+      } else {
+        throw new Error('Payment verification failed');
+      }
+    } catch (error: any) {
       console.error('Error processing payment:', error);
-      toast.error('Error processing payment. Please try again.');
+      toast.error(error.response?.data?.message || 'Error processing payment. Please try again.');
+      setShowRazorpay(false);
     }
   };
 
   const handlePaymentFailure = (error: any) => {
     console.error('Payment failed:', error);
-    toast.error('Payment failed. Please try again.');
+    toast.error(error.message || 'Payment failed. Please try again.');
     setShowRazorpay(false);
   };
 
@@ -259,6 +290,21 @@ const Checkout = () => {
                     
                     <FormField
                       control={form.control}
+                      name="whatsappNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Whatsapp Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="+1 (555) 123-4567" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <FormField
+                      control={form.control}
                       name="phone"
                       render={({ field }) => (
                         <FormItem>
@@ -270,8 +316,7 @@ const Checkout = () => {
                         </FormItem>
                       )}
                     />
-                  </div>
-                  
+
                   <FormField
                     control={form.control}
                     name="address"
@@ -368,13 +413,14 @@ const Checkout = () => {
                   />
                   
                   {showRazorpay && orderId && customerInfo ? (
-                    <RazorpayCheckout 
-                      amount={totalAmount}
-                      orderId={orderId}
-                      customerInfo={customerInfo}
-                      onSuccess={handlePaymentSuccess}
-                      onFailure={handlePaymentFailure}
-                    />
+                    <div className="mt-4">
+                      <RazorpayCheckout 
+                        order={orderId}
+                        customerInfo={customerInfo}
+                        onSuccess={handlePaymentSuccess}
+                        onFailure={handlePaymentFailure}
+                      />
+                    </div>
                   ) : (
                     <Button
                     type="submit" 
@@ -411,10 +457,10 @@ const Checkout = () => {
                 {cart.map((item, index) => (
                   <div key={`${item.product._id || item.product.id}-${index}`} className="flex justify-between">
                     <span className="text-gray-600">
-                      {item.quantity} x {item.product.name}
+                      {item.quantity} x {item.product.name} ({item.size})
                     </span>
                     <span className="font-medium">
-                      ₹{((item.product.salePrice || item.product.price) * item.quantity).toFixed(2)}
+                      ₹{((item.salePrice || item.price) * item.quantity).toFixed(2)}
                     </span>
                   </div>
                 ))}

@@ -71,9 +71,7 @@ export const orderService = {
   },
 
   // Create new order
-  createOrder: async (
-    orderData: Omit<Order, '_id' | 'createdAt' | 'updatedAt'>
-  ): Promise<Order> => {
+  createOrder: async (orderData: Record<string, any>): Promise<Order> => {
     try {
       console.log('Creating order with data:', orderData);
       // Use the api instance instead of axios directly

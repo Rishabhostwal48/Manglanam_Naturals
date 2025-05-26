@@ -1,5 +1,4 @@
-
-import  mongoose from 'mongoose';
+import mongoose from 'mongoose';
 
 const orderItemSchema = new mongoose.Schema({
   product: {
@@ -11,6 +10,10 @@ const orderItemSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  size: {
+    type: String,
+    required: true
+  },
   quantity: {
     type: Number,
     required: true,
@@ -19,6 +22,10 @@ const orderItemSchema = new mongoose.Schema({
   price: {
     type: Number,
     required: true,
+    min: 0
+  },
+  salePrice: {
+    type: Number,
     min: 0
   },
   image: {
@@ -99,4 +106,4 @@ const orderSchema = new mongoose.Schema({
 });
 
 const Order = mongoose.model('Order', orderSchema);
-export default  Order;
+export default Order;

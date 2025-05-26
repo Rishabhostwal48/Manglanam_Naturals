@@ -247,10 +247,67 @@ const createAdminUser = async (req, res) => {
   }
 };
 
+// @desc    Create admin user
+// @route   POST /api/users/create-admin
+// @access  Public (should be restricted in production)
+const createAdmin = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Please provide all required fields' });
+    }
+
+    // Check if user already exists
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Create admin user
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role: 'admin'
+    });
+
+    if (user) {
+      res.status(201).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: generateToken(user._id),
+      });
+    } else {
+      res.status(400).json({ message: 'Invalid user data' });
+    }
+  } catch (error) {
+    console.error('Create admin error:', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+// @desc    Get all users
+// @route   GET /api/users
+// @access  Private/Admin
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({}).select('-password');
+    res.json(users);
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
 export {
   registerUser,
   loginUser,
   getUserProfile,
   updateUserProfile,
   createAdminUser,
+  createAdmin,
+  getAllUsers,
 };

@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { orderService } from '../services/orderService';
+import { toast } from 'react-hot-toast';
+import api from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
 
 // Define the type for a shipping address
 export interface ShippingAddress {
@@ -17,9 +20,11 @@ export interface ShippingAddress {
 export interface OrderItem {
   id: string;
   name: string;
+  size: string;
   price: number;
+  salePrice?: number;
   quantity: number;
-  image?: string;
+  image: string;
 }
 
 // Define possible order statuses
@@ -63,13 +68,14 @@ export interface Order {
   status: OrderStatus;
   createdAt: string;
   updatedAt: string;
+  razorpayOrder?: any;
 }
 
 // Define the shape of the context
 interface OrderContextType {
   orderItems: OrderItem[];
-  addItem: (item: OrderItem) => void;
-  removeItem: (id: string) => void;
+  addItem: (product: any, size: string, quantity?: number) => void;
+  removeItem: (id: string, size: string) => void;
   clearOrder: () => void;
   totalAmount: number;
   loading: boolean;
@@ -98,39 +104,57 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [orderCache, setOrderCache] = useState<Record<string, Order>>({});
+  const { isAuthenticated, isAdmin } = useAuth();
 
-  // Fetch all orders on component mount
+  // Only fetch orders if user is authenticated and is admin
   useEffect(() => {
     const fetchOrders = async () => {
+      if (!isAuthenticated || !isAdmin) {
+        return;
+      }
+      
       try {
         setLoading(true);
         const result = await orderService.getAllOrders();
         setOrders(result);
-        setLoading(false);
       } catch (err) {
         console.error("Failed to fetch orders:", err);
+      } finally {
         setLoading(false);
       }
     };
     
     fetchOrders();
-  }, []);
+  }, [isAuthenticated, isAdmin]);
 
-  const addItem = (item: OrderItem) => {
-    setOrderItems(prev => {
-      const existingItem = prev.find(i => i.id === item.id);
-      if (existingItem) {
-        return prev.map(i =>
-          i.id === item.id ? { ...i, quantity: i.quantity + item.quantity } : i
-        );
-      } else {
-        return [...prev, item];
+  const addItem = (product: any, size: string, quantity: number = 1) => {
+    const existingItem = orderItems.find(i => i.id === product._id && i.size === size);
+    if (existingItem) {
+      setOrderItems(prev => prev.map(i =>
+        i.id === product._id && i.size === size ? { ...i, quantity: i.quantity + quantity } : i
+      ));
+    } else {
+      const sizeInfo = product.sizes.find((s: any) => s.size === size);
+      if (!sizeInfo) {
+        toast.error("Selected size not available");
+        return;
       }
-    });
+      const newItem: OrderItem = {
+        id: product._id,
+        name: product.name,
+        size: size,
+        price: sizeInfo.price,
+        salePrice: sizeInfo.salePrice || undefined,
+        quantity,
+        image: product.image,
+      };
+      setOrderItems(prev => [...prev, newItem]);
+    }
   };
 
-  const removeItem = (id: string) => {
-    setOrderItems(prev => prev.filter(item => item.id !== id));
+  const removeItem = (id: string, size: string) => {
+    setOrderItems(prev => prev.filter(item => !(item.id === id && item.size === size)));
   };
 
   const clearOrder = () => {
@@ -144,30 +168,81 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await orderService.createOrder(orderData);
-      // Add the new order to the orders state
-      setOrders(prev => [result, ...prev]);
+      const formattedOrderItems = orderItems.map((item) => ({
+        product: item.id,
+        name: item.name,
+        size: item.size,
+        quantity: item.quantity,
+        price: item.price,
+        salePrice: item.salePrice,
+        image: item.image,
+      }));
+
+      // Calculate total price
+      const itemsPrice = formattedOrderItems.reduce(
+        (sum, item) => sum + (item.salePrice || item.price) * item.quantity,
+        0
+      );
+
+      const totalPrice = itemsPrice + (orderData.taxPrice || 0) + (orderData.shippingPrice || 0);
+
+      // Create order using the API instance
+      const response = await api.post("/orders", {
+        ...orderData,
+        orderItems: formattedOrderItems,
+        itemsPrice,
+        totalPrice,
+        paymentMethod: orderData.paymentMethod,
+        shippingAddress: orderData.shippingAddress
+      });
+
+      if (response.data) {
+        // If payment method is Razorpay, create Razorpay order
+        if (orderData.paymentMethod === 'razorpay') {
+          const razorpayResponse = await api.post('/payments/create-razorpay-order', {
+            orderId: response.data._id,
+            amount: totalPrice * 100 // Razorpay expects amount in paise
+          });
+          
+          return {
+            ...response.data,
+            razorpayOrder: razorpayResponse.data
+          };
+        }
+
+        clearOrder();
+        return response.data;
+      }
+
+      throw new Error('Failed to create order');
+    } catch (error: any) {
       setLoading(false);
-      return result;
-    } catch (err: any) {
-      setLoading(false);
-      const errorMessage = err.response?.data?.message || 'Failed to create order';
+      const errorMessage = error.response?.data?.message || "Error creating order";
       setError(errorMessage);
       throw new Error(errorMessage);
     }
   };
 
-  // Get order by ID
+  // Get order by ID with caching
   const getOrderById = async (orderId: string): Promise<Order> => {
+    // Check cache first
+    if (orderCache[orderId]) {
+      return orderCache[orderId];
+    }
+
     setLoading(true);
     setError(null);
     try {
       const result = await orderService.getOrderById(orderId);
+      // Update cache
+      setOrderCache(prev => ({
+        ...prev,
+        [orderId]: result
+      }));
       setLoading(false);
       return result;
     } catch (err: any) {
       setLoading(false);
-      // Use the error message from the service if available
       const errorMessage = err.message || err.response?.data?.message || 'Failed to fetch order';
       setError(errorMessage);
       throw new Error(errorMessage);
@@ -212,16 +287,20 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     return orders.filter(order => order.user?._id === userId);
   };
 
-  // Update order status
+  // Update order status with cache update
   const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<Order> => {
     setLoading(true);
     setError(null);
     try {
       const result = await orderService.updateOrderStatus(orderId, status);
-      // Update the order in the orders state
+      // Update both orders state and cache
       setOrders(prev => prev.map(order => 
         order._id === orderId ? { ...order, status } : order
       ));
+      setOrderCache(prev => ({
+        ...prev,
+        [orderId]: { ...prev[orderId], status }
+      }));
       setLoading(false);
       return result;
     } catch (err: any) {

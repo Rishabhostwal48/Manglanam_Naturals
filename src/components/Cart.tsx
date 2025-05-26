@@ -33,17 +33,17 @@ export function Cart() {
         </div>
         
         {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto py-6 px-6">
+        <div className="flex-1 overflow-auto p-6">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <ShoppingBag className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">Your cart is empty</h3>
-              <p className="text-muted-foreground mt-1">Add some spices to get started</p>
+              <ShoppingBag className="h-16 w-16 text-gray-300 mb-4" />
+              <h3 className="text-lg font-medium mb-2">Your cart is empty</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Add items to your cart to see them here.
+              </p>
               <Button 
-                className="mt-6" 
-                onClick={() => {
-                  closeCart();
-                }}
+                onClick={closeCart}
+                className="w-full max-w-xs"
               >
                 Continue Shopping
               </Button>
@@ -51,7 +51,7 @@ export function Cart() {
           ) : (
             <ul className="divide-y">
               {items.map((item) => (
-                <li key={item.product._id} className="py-6 first:pt-0 last:pb-0">
+                <li key={`${item.product._id}-${item.size}`} className="py-4">
                   <div className="flex space-x-4">
                     {/* Product Image */}
                     <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border">
@@ -67,12 +67,18 @@ export function Cart() {
                         <h3>
                           <a href={`/product/${item.product._id}`}>{item.product.name}</a>
                         </h3>
-                        <p className="ml-4">{formatCurrency(item.product.price * item.quantity)}</p>
+                        <p className="ml-4">
+                          {item.salePrice 
+                            ? formatCurrency(item.salePrice * item.quantity)
+                            : formatCurrency(item.price * item.quantity)}
+                        </p>
                       </div>
                       
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {item.product.weight}
-                      </p>
+                      {item.product.hasMultipleSizes && item.size && (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Size: {item.size}
+                        </p>
+                      )}
                       
                       <div className="flex items-center justify-between mt-2">
                         {/* Quantity Selector */}
@@ -81,7 +87,7 @@ export function Cart() {
                             variant="ghost" 
                             size="icon" 
                             className="h-8 w-8 rounded-none"
-                            onClick={() => updateQuantity(item.product._id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.product._id, item.size || '', item.quantity - 1)}
                             disabled={item.quantity <= 1}
                           >
                             <Minus className="h-3 w-3" />
@@ -91,7 +97,7 @@ export function Cart() {
                             variant="ghost" 
                             size="icon" 
                             className="h-8 w-8 rounded-none"
-                            onClick={() => updateQuantity(item.product._id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.product._id, item.size || '', item.quantity + 1)}
                           >
                             <Plus className="h-3 w-3" />
                           </Button>
@@ -102,7 +108,7 @@ export function Cart() {
                           variant="ghost" 
                           size="sm" 
                           className="text-sm text-red-500 hover:text-red-700"
-                          onClick={() => removeItem(item.product._id)}
+                          onClick={() => removeItem(item.product._id, item.size || '')}
                         >
                           Remove
                         </Button>

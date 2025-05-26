@@ -4,16 +4,16 @@ import mongoose from 'mongoose';
 const sizeSchema = new mongoose.Schema({
   size: {
     type: String,
-    required: true
+    required: [true, 'Size is required']
   },
   price: {
     type: Number,
-    required: true,
-    min: 0
+    required: [true, 'Price is required'],
+    min: [0, 'Price cannot be negative']
   },
   salePrice: {
     type: Number,
-    min: 0
+    min: [0, 'Sale price cannot be negative']
   },
   inStock: {
     type: Boolean,
@@ -36,22 +36,44 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required']
   },
-  // Keep price for backward compatibility
-  price: {
-    type: Number,
-    required: [true, 'Price is required'],
-    min: 0
-  },
-  // Keep salePrice for backward compatibility
-  salePrice: {
-    type: Number,
-    min: 0
-  },
-  // Add sizes array for weight-based pricing
-  sizes: [sizeSchema],
   description: {
     type: String,
     required: [true, 'Description is required']
+  },
+  hasMultipleSizes: {
+    type: Boolean,
+    required: true,
+    default: true
+  },
+  basePrice: {
+    type: Number,
+    validate: {
+      validator: function(price) {
+        // Require basePrice only for single size products
+        if (!this.hasMultipleSizes) {
+          return price && price > 0;
+        }
+        return true; // No validation needed for multiple size products
+      },
+      message: 'Base price is required for single size products'
+    }
+  },
+  baseSalePrice: {
+    type: Number,
+    min: [0, 'Base sale price cannot be negative']
+  },
+  sizes: {
+    type: [sizeSchema],
+    validate: {
+      validator: function(sizes) {
+        // Only require sizes array if hasMultipleSizes is true
+        if (this.hasMultipleSizes) {
+          return sizes && sizes.length > 0;
+        }
+        return true; // No validation needed for single size products
+      },
+      message: 'At least one size is required for products with multiple sizes'
+    }
   },
   shortDescription: {
     type: String,
@@ -77,11 +99,6 @@ const productSchema = new mongoose.Schema({
   inStock: {
     type: Boolean,
     default: true
-  },
-  // Keep weight for backward compatibility
-  weight: {
-    type: String,
-    required: false
   },
   origin: {
     type: String,

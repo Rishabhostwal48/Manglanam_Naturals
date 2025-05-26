@@ -1,3 +1,9 @@
+export interface ProductSize {
+  size: string;
+  price: number;
+  salePrice?: number;
+  inStock: boolean;
+}
 
 export interface Product {
   /**
@@ -20,24 +26,25 @@ export interface Product {
   
   name: string;
   category: string;
-  price: number;
-  image: string;
-  /**
-   * Additional product images
-   */
-  images?: string[];
-  /**
-   * Product video URL
-   */
-  video?: string;
   description: string;
+  shortDescription?: string;
+  hasMultipleSizes: boolean;
+  basePrice?: number;
+  baseSalePrice?: number;
+  sizes?: ProductSize[];
+  price?: number; // For backward compatibility
+  salePrice?: number; // For backward compatibility
+  image: string;
+  images?: string[];
+  video?: string;
   featured: boolean;
   bestSeller: boolean;
-  origin: string;
-  weight: string;
   inStock: boolean;
-  salePrice?: number;
-  sizes:string;
+  origin: string;
+  tags?: string[];
+  rating: number;
+  reviewCount: number;
+  weight?: string; // For backward compatibility
 }
 
 export const categories = [

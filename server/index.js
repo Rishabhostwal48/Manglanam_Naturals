@@ -10,6 +10,7 @@ import userRoutes from './routes/userRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
+import uploadRoutes from "./routes/upload.js";
 
 // Load environment variables
 dotenv.config();
@@ -31,7 +32,7 @@ app.use(express.json());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? [process.env.FRONTEND_URL || 'https://yourdomain.com'] 
-    : ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:5173'],
+    : ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:8081'],
   credentials: true
 }));
 
@@ -45,93 +46,39 @@ app.use('/api/payments', paymentRoutes);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Serve uploaded files with proper MIME types
-const uploadsPath = path.join(__dirname, 'uploads');
-// console.log('Uploads directory path:', uploadsPath);
 
-// Check if uploads directory exists, create it if not
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-  // console.log('Created uploads directory');
-}
+app.use("/products/upload", uploadRoutes);
+app.use("/products/upload-video", uploadRoutes);
 
-// List files in uploads directory for debugging
-try {
-  const files = fs.readdirSync(uploadsPath);
-  // console.log('Files in uploads directory:', files);
-} catch (error) {
-  console.error('Error reading uploads directory:', error);
-}
 
-// Add a specific route for video files to handle them properly
-app.get('/uploads/:filename', (req, res) => {
-  const filename = req.params.filename;
-  const filepath = path.join(uploadsPath, filename);
-  
-  // console.log(`Request for file: ${filename}`);
-  // console.log(`Full path: ${filepath}`);
-  
-  // Check if file exists
-  if (!fs.existsSync(filepath)) {
-    console.error(`File not found: ${filepath}`);
-    return res.status(404).send('File not found');
-  }
-  
-  // Set appropriate content type based on file extension
-  const ext = path.extname(filename).toLowerCase();
-  let contentType = 'application/octet-stream';
-  
-  if (ext === '.mp4') {
-    contentType = 'video/mp4';
-  } else if (ext === '.webm') {
-    contentType = 'video/webm';
-  } else if (ext === '.mov' || ext === '.qt') {
-    contentType = 'video/quicktime';
-  } else if (ext === '.jpg' || ext === '.jpeg') {
-    contentType = 'image/jpeg';
-  } else if (ext === '.png') {
-    contentType = 'image/png';
-  } else if (ext === '.webp') {
-    contentType = 'image/webp';
-  }
-  
-  // Set headers
-  res.setHeader('Content-Type', contentType);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'no-cache');
-  
-  // Stream the file
-  const fileStream = fs.createReadStream(filepath);
-  fileStream.pipe(res);
-  
-  fileStream.on('error', (error) => {
-    console.error(`Error streaming file ${filepath}:`, error);
-    if (!res.headersSent) {
-      res.status(500).send('Error streaming file');
-    }
-  });
-});
-
-// Keep the static middleware as a fallback
-app.use('/uploads', express.static(uploadsPath));
-
-// Serve static files from the public directory
-app.use(express.static(path.join(__dirname, '../public')));
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
-  // Set static folder
-  app.use(express.static(path.join(__dirname, '../dist')));
+  // Since frontend is deployed separately, do not serve static frontend files here
+  // Remove or comment out the static folder and catch-all route for frontend
 
-  // Any route that is not an API route will be directed to index.html
-  app.get('/*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../dist', 'index.html'));
+  // Optionally, respond with a simple message or 404 for non-API routes
+  app.get('/', (req, res) => {
+    res.send('API is running in production mode');
+  });
+
+  // Handle non-API routes with 404 JSON response
+  app.get('/*', (req, res, next) => {
+    if (req.url.startsWith('/api/') || 
+        req.url.startsWith('/uploads/') || 
+        req.url.includes('.')) {
+      return next();
+    }
+    res.status(404).json({
+      message: 'Route not found',
+      note: 'This is an API-only backend server'
+    });
   });
 } else {
   app.get('/', (req, res) => {
     res.send('API is running...');
   });
-  
+
   // In development, handle non-API routes that aren't found
   app.get('/*', (req, res, next) => {
     // Skip API routes and static file routes

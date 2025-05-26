@@ -54,10 +54,10 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-md mb-4">Contact Us</h4>
             <address className="not-italic text-sm text-gray-600 space-y-2">
-              <p>123 Spice Market Lane</p>
-              <p>Flavor District, FV 12345</p>
+              <p>Plot No. 70 Numkeen Cluster & Food Allite Park</p>
+              <p>Karamdi, dist. Ratlam ,457001</p>
               <p>Email: info@manglanam.com</p>
-              <p>Phone: +1 (123) 456-7890</p>
+              <p>Phone: +91 7974706071</p>
             </address>
           </div>
         </div>

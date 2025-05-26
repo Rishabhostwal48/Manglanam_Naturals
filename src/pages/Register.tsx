@@ -25,7 +25,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const { name, email, password } = formData;
+      const { name, email, password, whatsappNumber, preferWhatsapp } = formData;
       await authService.register(name, email, password);
       
       toast({
@@ -88,6 +88,18 @@ export default function Register() {
                 className="h-11"
                 placeholder="user@example.com"
                 autoComplete="username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="whatsappNumber" className="text-sm font-medium">WhatsappNumber</Label>
+              <Input
+                id="whatsappNumber"
+                type="whatsappNumber"
+                value={formData.whatsappNumber}
+                onChange={handleChange}
+                className="h-11"
+                placeholder="+1234567890"
+                autoComplete="mobile-number"
               />
             </div>
             <div className="space-y-2">

@@ -1,15 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loginUser, registerUser, logoutUser, getUserProfile, updateUserProfile } from '../services/UserService.ts';
-import { toast } from '@/components/ui/sonner';
+import { authService } from '@/services/api';
+import { toast } from 'sonner';
 
 export interface User {
   id: string;
+  _id: string;
   name: string;
   email: string;
   role: 'user' | 'admin';
   token: string;
   whatsappNumber?: string | null;
   preferWhatsapp?: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface AuthContextProps {
@@ -46,7 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(userInfo);
             
             try {
-              const profile = await getUserProfile();
+              const profile = await authService.getUserProfile();
               
               if (profile) {
                 const updatedUserInfo = {
@@ -59,7 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             } catch (error) {
               // Only logout on authentication errors, not on server errors
               if (error?.response?.status === 401 || error?.response?.status === 403) {
-                logoutUser();
+                authService.logout();
                 setUser(null);
                 toast.error('Your session has expired. Please log in again.');
               } else if (error?.response?.status === 500) {
@@ -68,7 +71,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               }
             }
           } catch (parseError) {
-            logoutUser();
+            authService.logout();
             setUser(null);
           }
         } else {
@@ -87,7 +90,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const userData = await loginUser(email, password);
+      const userData = await authService.login(email, password);
       setUser(userData);
       localStorage.setItem('userInfo', JSON.stringify(userData));
       toast.success('Login successful');
@@ -106,7 +109,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const register = async (name: string, email: string, password: string) => {
     try {
       setLoading(true);
-      const userData = await registerUser(name, email, password);
+      const userData = await authService.register(name, email, password);
       setUser(userData);
       localStorage.setItem('userInfo', JSON.stringify(userData));
       toast.success('Registration successful');
@@ -123,7 +126,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = () => {
-    logoutUser();
+    authService.logout();
     setUser(null);
     toast.success('Logged out successfully');
   };
@@ -136,7 +139,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }) => {
     try {
       setLoading(true);
-      const updatedUserData = await updateUserProfile(userData);
+      const updatedUserData = await authService.updateUserProfile(userData);
       
       if (user) {
         const newUserData = {

@@ -6,7 +6,7 @@ export default function About() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-amber-50 to-orange-50 py-16 md:py-24">
+      <section className="bg-gradient-to-r from-amber-100 to-orange-200 py-16 md:py-24">
         <div className="container-custom">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl font-playfair font-bold mb-6">Our Story</h1>
@@ -30,14 +30,17 @@ export default function About() {
             </div>
             <div>
               <h2 className="text-3xl font-playfair font-bold mb-6">Our Journey</h2>
-              <p className="text-gray-700 mb-4">
-                Manglanam Naturals was founded with a simple mission: to bring the authentic flavors of premium spices directly to your kitchen. What started as a small family business has grown into a trusted brand known for quality and sustainability.
+              <p className="text-gray-600  mb-4">
+              Manglanam Naturals is more than just a brand — it's the fourth generation of a family's passion for spices, purity, and tradition.
               </p>
-              <p className="text-gray-700 mb-4">
-                Our journey began when our founder, Raj Manglanam, recognized the gap between the spices found in Western supermarkets and the vibrant, aromatic spices he grew up with in Northern India. This realization sparked a passion to source and provide the highest quality spices directly from farmers around the world.
+              <p className="text-gray-600  mb-4">
+              Built on the rich heritage of a spice business that has been serving families for over 80 years, our journey began with our founder’s great-grandfather — a visionary who laid the foundation for a trusted name in locally sourced spices.
               </p>
-              <p className="text-gray-700">
-                Today, we work with small-scale farmers across India, Sri Lanka, Indonesia, and beyond, ensuring fair trade practices while bringing exceptional taste to kitchens worldwide.
+              <p className="text-gray-600 mb-4">
+              With each passing generation, the commitment to purity, quality, and tradition grew stronger. From grandfather to father — and now to the fourth generation — this legacy continues through Manglanam Naturals: a brand born to honor our roots while embracing a modern, natural, and health-conscious approach.
+              </p>
+              <p className="text-gray-600 mb-4">
+              Rooted in the trust of our local community and inspired by a vision to share our heritage with the world, Manglanam Naturals blends age-old wisdom with today’s values of wellness, sustainability, and authenticity.
               </p>
             </div>
           </div>
@@ -106,10 +109,10 @@ export default function About() {
           
           <div className="grid md:grid-cols-4 gap-8">
             {[
-              { name: "Raj Manglanam", title: "Founder & CEO", image: "/placeholder.svg" },
-              { name: "Priya Shah", title: "Head of Sourcing", image: "/placeholder.svg" },
-              { name: "Ankit Verma", title: "Chief Product Officer", image: "/placeholder.svg" },
-              { name: "Meera Patel", title: "Culinary Director", image: "/placeholder.svg" },
+              { name: "Yashraj Jain", title: "Founder & CEO", image: "./images/yash.jpg" },
+              { name: "Rajesh Jhamer", title: "Co-Founder & Quality Controller", image: "./images/rajesh.jpg" },
+              { name: "Hardika Jain", title: "Digital Marketing Manager", image: "./images/hardika.jpg" },
+              { name: "Rajesh Jhamer", title: "Co-Founder & Quality Controller", image: "./images/rajesh.jpg" },
             ].map((person, index) => (
               <div key={index} className="text-center">
                 <div className="mb-4 relative overflow-hidden rounded-full aspect-square w-48 mx-auto">
@@ -128,14 +131,14 @@ export default function About() {
       </section>
       
       {/* CTA Section */}
-      <section className="bg-cinnamon text-white py-16">
+      <section className="bg-gradient-to-r from-amber-100 to-orange-300 text-black py-16">
         <div className="container-custom">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-3xl font-playfair font-bold mb-4">Experience the Difference</h2>
             <p className="text-lg mb-8">
               Discover our premium range of spices and bring authentic global flavors to your kitchen today.
             </p>
-            <Button asChild size="lg" className="bg-white text-cinnamon hover:bg-white/90">
+            <Button asChild size="lg" className="bg-amber-600 text-white hover:bg-cinnamon/50">
               <Link to="/products">Shop Our Collection</Link>
             </Button>
           </div>

@@ -1,54 +1,63 @@
-
 import api from './api';
 
-// User API
-export const loginUser = async (email: string, password: string) => {
-  try {
-    const response = await api.post('/users/login', { email, password });
-    localStorage.setItem('userToken', response.data.token);
-    localStorage.setItem('userInfo', JSON.stringify(response.data));
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const registerUser = async (name: string, email: string, password: string) => {
-  try {
-    const response = await api.post('/users', { name, email, password });
-    localStorage.setItem('userToken', response.data.token);
-    localStorage.setItem('userInfo', JSON.stringify(response.data));
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const logoutUser = () => {
-  localStorage.removeItem('userToken');
-  localStorage.removeItem('userInfo');
-};
-
-// Update the getUserProfile function to return the data
-export const getUserProfile = async () => {
-  try {
-    const response = await api.get('/users/profile');
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const updateUserProfile = async (userData: {
-  name?: string;
+export interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
   whatsappNumber?: string;
   preferWhatsapp?: boolean;
-  password?: string;
-}) => {
-  try {
-    const response = await api.put('/users/profile', userData);
-    return response.data;
-  } catch (error) {
-    throw error;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const userService = {
+  // Get all users (admin only)
+  getAllUsers: async (): Promise<User[]> => {
+    try {
+      const { data } = await api.get<User[]>('/users');
+      return data;
+    } catch (error: any) {
+      console.error('Error fetching all users:', error);
+      if (error.response?.status === 401) {
+        return [];
+      }
+      throw new Error('Failed to fetch users.');
+    }
+  },
+
+  // Get user profile
+  getUserProfile: async (): Promise<User> => {
+    try {
+      const { data } = await api.get<User>('/users/profile');
+      return data;
+    } catch (error: any) {
+      console.error('Error fetching user profile:', error);
+      throw new Error('Failed to fetch user profile.');
+    }
+  },
+
+  // Update user profile
+  updateUserProfile: async (userData: Partial<User>): Promise<User> => {
+    try {
+      const { data } = await api.put<User>('/users/profile', userData);
+      return data;
+    } catch (error: any) {
+      console.error('Error updating user profile:', error);
+      throw new Error('Failed to update user profile.');
+    }
+  },
+
+  // Create admin user (admin only)
+  createAdminUser: async (userData: { name: string; email: string; password: string }): Promise<User> => {
+    try {
+      const { data } = await api.post<User>('/users/admin', userData);
+      return data;
+    } catch (error: any) {
+      console.error('Error creating admin user:', error);
+      throw new Error('Failed to create admin user.');
+    }
   }
 };
+
+export default userService;

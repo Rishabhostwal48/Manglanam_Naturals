@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "./context/CartContext";
 import { OrderProvider } from "./context/OrderContext";
 import { AuthProvider } from "./context/AuthContext";
+import WhatsappButton from "./components/WhatsappButton.jsx";
 import Profile from "./pages/Profile";
 import "@/styles/print.css";
 
@@ -39,6 +40,7 @@ import AddProduct from "./pages/admin/AddProduct";
 import EditProduct from "./pages/admin/EditProduct";
 import AddBlogPost from "./pages/admin/AddBlogPost";
 import EditBlogPost from "./pages/admin/EditBlogPost";
+import AdminUsers from '@/pages/admin/Users';
 
 // Components
 import { Navbar } from "./components/Navbar";
@@ -57,6 +59,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <WhatsappButton />
               <Routes>
                 <Route path="/login" element={<Login />} />
                 
@@ -82,6 +85,7 @@ const App = () => (
                   <Route path="blog-posts" element={<AdminBlogPosts />} />
                   <Route path="blog-posts/add" element={<AddBlogPost />} />
                   <Route path="blog-posts/edit/:id" element={<EditBlogPost />} />
+                  <Route path="users" element={<AdminUsers />} />
                 </Route>
                 
                 <Route path="/register" element={
