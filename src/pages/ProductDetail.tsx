@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/utils';
 import { categories } from '@/data/products';
 import ProductMediaCarousel from '@/components/ProductMediaCarousel';
 import { toast } from 'react-hot-toast';
+import SEO from '@/components/SEO';
 
 
 interface ProductSize {
@@ -234,188 +235,212 @@ const [selectedSize, setSelectedSize] = useState<string>('');
     );
   };
   
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "description": product.description,
+    "image": product.image,
+    "brand": {
+      "@type": "Brand",
+      "name": "Manglanam Naturals"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": product.basePrice,
+      "priceCurrency": "INR",
+      "availability": product.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
+    }
+  };
+  
   return (
-    <div className="min-h-screen">
-      {/* Breadcrumbs */}
-      <div className="bg-gray-50 py-4">
-        <div className="container-custom">
-          <nav className="flex text-sm">
-            <Link to="/" className="text-gray-500 hover:text-primary">Home</Link>
-            <ChevronRight className="h-4 w-4 mx-2 text-gray-400 mt-0.5" />
-            <Link to="/products" className="text-gray-500 hover:text-primary">Products</Link>
-            <ChevronRight className="h-4 w-4 mx-2 text-gray-400 mt-0.5" />
-            <Link 
-              to={`/products?category=${product.category}`}
-              className="text-gray-500 hover:text-primary"
-            >
-              {getCategoryName(product.category)}
-            </Link>
-            <ChevronRight className="h-4 w-4 mx-2 text-gray-400 mt-0.5" />
-            <span className="text-gray-700">{product.name}</span>
-          </nav>
-        </div>
-      </div>
-      
-      {/* Back Button - Mobile Only */}
-      <div className="container-custom pt-4 md:hidden">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="flex items-center text-gray-600"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-      </div>
-      
-      {/* Product Details */}
-      <div className="container-custom py-8">
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Product Images Gallery */}
-          <div className="space-y-4">
-            <ProductMediaCarousel
-              mainImage={product.image}
-              additionalImages={product.images || []}
-              video={product.video}
-            />
-          </div>
-          
-          {/* Product Info */}
-          <div className="space-y-6">
-            <div>
+    <>
+      <SEO 
+        title={product.name}
+        description={product.description}
+        image={product.image}
+        type="product"
+        schema={productSchema}
+      />
+      <div className="min-h-screen">
+        {/* Breadcrumbs */}
+        <div className="bg-gray-50 py-4">
+          <div className="container-custom">
+            <nav className="flex text-sm">
+              <Link to="/" className="text-gray-500 hover:text-primary">Home</Link>
+              <ChevronRight className="h-4 w-4 mx-2 text-gray-400 mt-0.5" />
+              <Link to="/products" className="text-gray-500 hover:text-primary">Products</Link>
+              <ChevronRight className="h-4 w-4 mx-2 text-gray-400 mt-0.5" />
               <Link 
                 to={`/products?category=${product.category}`}
-                className="text-sm font-medium text-primary hover:underline"
+                className="text-gray-500 hover:text-primary"
               >
                 {getCategoryName(product.category)}
               </Link>
-              <h1 className="text-3xl font-playfair font-bold mt-1">{product.name}</h1>
-              
-              {/* Price Display */}
-              <div className="mt-4">
-                {product.hasMultipleSizes ? (
-                  <>
-                    <label htmlFor="size-select" className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Size
-                    </label>
-                    <select
-                      id="size-select"
-                      value={selectedSize}
-                      onChange={(e) => setSelectedSize(e.target.value)}
-                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
-                    >
-                      {product.sizes?.map((size) => (
-                        <option key={size.size} value={size.size} disabled={!size.inStock}>
-                          {size.size} - ₹{formatCurrency(size.price)}
-                          {!size.inStock && " (Out of Stock)"}
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                ) : (
-                  <div className="text-2xl font-bold text-gray-900">
-                    ₹{formatCurrency(product.basePrice)}
-                    {product.baseSalePrice && (
-                      <>
-                        <span className="ml-2 text-lg line-through text-gray-500">
-                          ₹{formatCurrency(product.baseSalePrice)}
-                        </span>
-                        <span className="ml-2 text-sm text-green-600">
-                          {Math.round(((product.baseSalePrice - product.basePrice) / product.baseSalePrice) * 100)}% OFF
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <Separator />
-            
-            <div>
-              <h3 className="font-medium mb-2">Description</h3>
-              <p className="text-gray-700">{product.description}</p>
-            </div>
-            
+              <ChevronRight className="h-4 w-4 mx-2 text-gray-400 mt-0.5" />
+              <span className="text-gray-700">{product.name}</span>
+            </nav>
+          </div>
+        </div>
+        
+        {/* Back Button - Mobile Only */}
+        <div className="container-custom pt-4 md:hidden">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="flex items-center text-gray-600"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+        </div>
+        
+        {/* Product Details */}
+        <div className="container-custom py-8">
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Product Images Gallery */}
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Origin</h3>
-                  <p>{product.origin}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Weight</h3>
-                  <p>{product.weight}</p>
-                </div>
-              </div>
+              <ProductMediaCarousel
+                mainImage={product.image}
+                additionalImages={product.images || []}
+                video={product.video}
+              />
             </div>
             
-            <Separator />
-            
-            <div className="mt-6">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center border rounded-lg">
-                  <button
-                    onClick={decrementQuantity}
-                    className="p-2 hover:bg-gray-100 rounded-l-lg"
-                    aria-label="Decrease quantity"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="px-4 py-2 text-gray-900">{quantity}</span>
-                  <button
-                    onClick={incrementQuantity}
-                    className="p-2 hover:bg-gray-100 rounded-r-lg"
-                    aria-label="Increase quantity"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-                
-                <Button
-                  onClick={handleAddToCart}
-                  variant="cardamom"
-                  className="flex-1 py-6"
-                  disabled={product.hasMultipleSizes && !selectedSize}
+            {/* Product Info */}
+            <div className="space-y-6">
+              <div>
+                <Link 
+                  to={`/products?category=${product.category}`}
+                  className="text-sm font-medium text-primary hover:underline"
                 >
-                  <ShoppingBag className="mr-2 h-5 w-5" />
-                  Add to Cart
-                </Button>
+                  {getCategoryName(product.category)}
+                </Link>
+                <h1 className="text-3xl font-playfair font-bold mt-1">{product.name}</h1>
+                
+                {/* Price Display */}
+                <div className="mt-4">
+                  {product.hasMultipleSizes ? (
+                    <>
+                      <label htmlFor="size-select" className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Size
+                      </label>
+                      <select
+                        id="size-select"
+                        value={selectedSize}
+                        onChange={(e) => setSelectedSize(e.target.value)}
+                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
+                      >
+                        {product.sizes?.map((size) => (
+                          <option key={size.size} value={size.size} disabled={!size.inStock}>
+                            {size.size} - ₹{formatCurrency(size.price)}
+                            {!size.inStock && " (Out of Stock)"}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <div className="text-2xl font-bold text-gray-900">
+                      ₹{formatCurrency(product.basePrice)}
+                      {product.baseSalePrice && (
+                        <>
+                          <span className="ml-2 text-lg line-through text-gray-500">
+                            ₹{formatCurrency(product.baseSalePrice)}
+                          </span>
+                          <span className="ml-2 text-sm text-green-600">
+                            {Math.round(((product.baseSalePrice - product.basePrice) / product.baseSalePrice) * 100)}% OFF
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div>
+                <h3 className="font-medium mb-2">Description</h3>
+                <p className="text-gray-700">{product.description}</p>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Origin</h3>
+                    <p>{product.origin}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Weight</h3>
+                    <p>{product.weight}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div className="mt-6">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center border rounded-lg">
+                    <button
+                      onClick={decrementQuantity}
+                      className="p-2 hover:bg-gray-100 rounded-l-lg"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="px-4 py-2 text-gray-900">{quantity}</span>
+                    <button
+                      onClick={incrementQuantity}
+                      className="p-2 hover:bg-gray-100 rounded-r-lg"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                  
+                  <Button
+                    onClick={handleAddToCart}
+                    variant="cardamom"
+                    className="flex-1 py-6"
+                    disabled={product.hasMultipleSizes && !selectedSize}
+                  >
+                    <ShoppingBag className="mr-2 h-5 w-5" />
+                    Add to Cart
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Related Products */}
-      {relatedProducts.length > 0 && (
-        <section className="bg-gray-50 py-16">
-          <div className="container-custom">
-            <h2 className="text-2xl font-playfair font-bold mb-8">You May Also Like</h2>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((relatedProduct, index) => (
-                <ProductCard 
-                  key={relatedProduct._id ? relatedProduct._id : `related-product-${index}`} 
-                  product={relatedProduct} 
-                />
-              ))}
+        
+        {/* Related Products */}
+        {relatedProducts.length > 0 && (
+          <section className="bg-gray-50 py-16">
+            <div className="container-custom">
+              <h2 className="text-2xl font-playfair font-bold mb-8">You May Also Like</h2>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {relatedProducts.map((relatedProduct, index) => (
+                  <ProductCard 
+                    key={relatedProduct._id ? relatedProduct._id : `related-product-${index}`} 
+                    product={relatedProduct} 
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        </section>
-      )}
-      
-      {/* Video Modal */}
-      <VideoModal
-        isOpen={showVideoModal}
-        onClose={() => setShowVideoModal(false)}
-        videoUrl={product.video || ''}
-      />
-    </div>
+          </section>
+        )}
+        
+        {/* Video Modal */}
+        <VideoModal
+          isOpen={showVideoModal}
+          onClose={() => setShowVideoModal(false)}
+          videoUrl={product.video || ''}
+        />
+      </div>
+    </>
   );
 }
-// function useEffect(arg0: () => void, arg1: any[]) {
-//   throw new Error('Function not implemented.');
-// }
 

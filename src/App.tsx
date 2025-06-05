@@ -8,6 +8,7 @@ import { CartProvider } from "./context/CartContext";
 import { OrderProvider } from "./context/OrderContext";
 import { AuthProvider } from "./context/AuthContext";
 import WhatsappButton from "./components/WhatsappButton.jsx";
+import PerformanceOptimizations from "./components/PerformanceOptimizations";
 import Profile from "./pages/Profile";
 import "@/styles/print.css";
 
@@ -56,6 +57,7 @@ const App = () => (
       <AuthProvider>
         <OrderProvider>
           <CartProvider>
+            <PerformanceOptimizations />
             <Toaster />
             <Sonner />
             <BrowserRouter>
