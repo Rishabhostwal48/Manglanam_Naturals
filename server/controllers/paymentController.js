@@ -1,13 +1,7 @@
 import stripe from 'stripe';
 import Order from '../models/orderModel.js';
-import Razorpay from 'razorpay';
+import razorpay from '../config/razorpay.js';
 import crypto from 'crypto';
-
-// Initialize Razorpay
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-});
 
 // @desc    Create a payment intent
 // @route   POST /api/payments/create-payment-intent
@@ -128,7 +122,13 @@ const createRazorpayOrder = async (req, res) => {
   try {
     const { amount, currency = 'INR', receipt } = req.body;
     
-    console.log('Creating Razorpay order with:', { amount, currency, receipt });
+    console.log('Creating Razorpay order with:', { 
+      amount, 
+      currency, 
+      receipt,
+      keyId: process.env.RAZORPAY_KEY_ID ? 'Present' : 'Missing',
+      keySecret: process.env.RAZORPAY_KEY_SECRET ? 'Present' : 'Missing'
+    });
     
     // Validate input
     if (!amount || amount < 1) {
@@ -139,28 +139,57 @@ const createRazorpayOrder = async (req, res) => {
       return res.status(400).json({ message: 'Order ID is required' });
     }
 
-    // Validate Razorpay credentials
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      console.error('Razorpay credentials not configured');
-      return res.status(500).json({ message: 'Payment system not configured properly' });
+    // Verify that the order exists
+    const order = await Order.findById(receipt);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
     }
     
     // Create Razorpay order
-    const order = await razorpay.orders.create({
-      amount: Math.round(amount * 100), // Convert to paise and ensure integer
-      currency,
-      receipt,
-      notes: {
-        orderId: receipt,
-        userId: req.user?._id || 'guest'
-      }
-    });
+    try {
+      const orderData = {
+        amount: Math.round(amount * 100), // Convert to paise and ensure integer
+        currency,
+        receipt,
+        notes: {
+          orderId: receipt,
+          userId: req.user?._id || 'guest'
+        }
+      };
+      
+      console.log('Creating Razorpay order with data:', orderData);
+      
+      const razorpayOrder = await razorpay.orders.create(orderData);
     
-    console.log('Razorpay order created:', order);
-    res.status(200).json(order);
+      console.log('Razorpay order created successfully:', razorpayOrder);
+
+      // Update the order with Razorpay details
+      order.razorpayOrder = razorpayOrder;
+      await order.save();
+      
+      res.status(200).json({
+        success: true,
+        order: razorpayOrder
+      });
+    } catch (razorpayError) {
+      console.error('Razorpay API Error:', {
+        error: razorpayError,
+        message: razorpayError.message,
+        description: razorpayError.error?.description,
+        details: razorpayError.error,
+        stack: razorpayError.stack
+      });
+      throw razorpayError;
+    }
   } catch (error) {
-    console.error('Error creating Razorpay order:', error);
+    console.error('Error creating Razorpay order:', {
+      error: error,
+      message: error.message,
+      details: error.error?.description || error.description || 'Unknown error',
+      stack: error.stack
+    });
     res.status(500).json({ 
+      success: false,
       message: 'Failed to create payment order',
       error: error.message,
       details: error.error?.description || error.description || 'Unknown error'

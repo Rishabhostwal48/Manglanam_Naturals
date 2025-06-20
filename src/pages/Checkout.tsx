@@ -36,11 +36,12 @@ const checkoutSchema = z.object({
   email: z.string().email('Valid email is required'),
   whatsappNumber: z.string().optional(),
   phone: z.string().min(10, 'Phone number is required'),
-  address: z.string().min(5, 'Address is required'),
+  street: z.string().min(5, 'Street address is required'),
   city: z.string().min(2, 'City is required'),
-  postalCode: z.string().min(4, 'Postal code is required'),
+  state: z.string().min(2, 'State is required'),
+  zipCode: z.string().min(4, 'ZIP code is required'),
   country: z.string().min(2, 'Country is required'),
-  paymentMethod: z.enum(['razorpay', 'cash-on-delivery'])
+  paymentMethod: z.enum(['Razorpay', 'Cash-on-delivery'])
 });
 
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
@@ -68,11 +69,12 @@ const Checkout = () => {
       email: user?.email || '',
       whatsappNumber: user?.whatsappNumber || '',
       phone: '',
-      address: '',
+      street: '',
       city: '',
-      postalCode: '',
+      state: '',
+      zipCode: '',
       country: '',
-      paymentMethod: 'razorpay'
+      paymentMethod: 'Razorpay'
     }
   });
 
@@ -97,28 +99,16 @@ const Checkout = () => {
       return;
     }
 
-    try {
       setIsSubmitting(true);
-      
-      const shippingAddress = {
-        fullName: values.fullName,
-        email: values.email,
-        phone: values.phone,
-        whatsappNumber: values.whatsappNumber,
-        street: values.address,
-        city: values.city,
-        state: '', // Add state field to form if needed
-        zipCode: values.postalCode,
-        country: values.country
-      };
-
-      // Format cart items to match OrderItem interface
+    try {
+      // Format order items from cart
       const orderItems = cart.map(item => ({
         product: item.product._id,
         name: item.product.name,
         size: item.size,
         quantity: item.quantity,
         price: item.product.price,
+        salePrice: item.product.salePrice,
         image: item.product.image
       }));
 
@@ -132,9 +122,19 @@ const Checkout = () => {
       const totalPrice = itemsPrice + taxPrice + shippingPrice;
 
       // Create order
-      const order = await createOrder({
+      const orderData = {
         orderItems,
-        shippingAddress,
+        shippingAddress: {
+          fullName: values.fullName,
+          email: values.email,
+          phone: values.phone,
+          whatsappNumber: values.whatsappNumber,
+          street: values.street,
+          city: values.city,
+          state: values.state,
+          zipCode: values.zipCode,
+          country: values.country
+        },
         paymentMethod: values.paymentMethod,
         itemsPrice,
         taxPrice,
@@ -143,7 +143,10 @@ const Checkout = () => {
         isPaid: false,
         isDelivered: false,
         status: 'pending'
-      });
+      };
+
+      console.log('Creating order with data:', orderData);
+      const order = await createOrder(orderData);
 
       if (!order || !order._id) {
         throw new Error('Failed to create order');
@@ -151,26 +154,41 @@ const Checkout = () => {
 
       setOrderId(order._id);
       
+      if (values.paymentMethod === 'Razorpay') {
+        console.log('Order details:', order);
+        if (!order.razorpayOrder) {
+          console.error('Razorpay order details missing:', order);
+          throw new Error('Razorpay order details not received');
+        }
       // Save customer info for Razorpay
       setCustomerInfo({
         name: values.fullName,
         email: values.email,
         whatsappNumber: values.whatsappNumber
       });
-      
-      if (values.paymentMethod === 'razorpay') {
         // Show Razorpay checkout
         setShowRazorpay(true);
       } else {
-        // For cash on delivery, process the order directly
+        // For cash on delivery
+        try {
         await checkout(values.paymentMethod);
         clearCart();
         toast.success('Order placed successfully!');
         navigate(`/order-confirmation/${order._id}`);
+        } catch (checkoutError: any) {
+          console.error('Checkout error:', checkoutError);
+          // If order is already created, still show success
+          if (order._id) {
+            toast.success('Order placed successfully!');
+            navigate(`/order-confirmation/${order._id}`);
+          } else {
+            throw checkoutError;
+          }
+        }
       }
     } catch (error: any) {
       console.error('Checkout error:', error);
-      toast.error(error.response?.data?.message || 'Error processing your order. Please try again.');
+      toast.error(error.response?.data?.message || error.message || 'Error processing your order. Please try again.');
       setShowRazorpay(false);
     } finally {
       setIsSubmitting(false);
@@ -195,7 +213,7 @@ const Checkout = () => {
 
       if (response.data.isPaid) {
         // Clear cart and navigate to order confirmation
-        await checkout('razorpay');
+        await checkout('Razorpay');
         clearCart();
         toast.success('Payment successful!');
         navigate(`/order-confirmation/${orderId}`);
@@ -319,7 +337,7 @@ const Checkout = () => {
 
                   <FormField
                     control={form.control}
-                    name="address"
+                    name="street"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Street Address</FormLabel>
@@ -348,18 +366,32 @@ const Checkout = () => {
                     
                     <FormField
                       control={form.control}
-                      name="postalCode"
+                      name="state"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Postal Code</FormLabel>
+                          <FormLabel>State</FormLabel>
                           <FormControl>
-                            <Input placeholder="10001" {...field} />
+                            <Input placeholder="New York" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="zipCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ZIP Code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="10001" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
                   <FormField
                     control={form.control}
@@ -391,7 +423,7 @@ const Checkout = () => {
                           >
                             <FormItem key="payment-razorpay" className="flex items-center space-x-3 space-y-0">
                               <FormControl>
-                                <RadioGroupItem value="razorpay" />
+                                <RadioGroupItem value="Razorpay" />
                               </FormControl>
                               <FormLabel className="font-normal">
                                 Pay Online (Razorpay)
@@ -399,7 +431,7 @@ const Checkout = () => {
                             </FormItem>
                             <FormItem key="payment-cod" className="flex items-center space-x-3 space-y-0">
                               <FormControl>
-                                <RadioGroupItem value="cash-on-delivery" />
+                                <RadioGroupItem value="Cash-on-delivery" />
                               </FormControl>
                               <FormLabel className="font-normal">
                                 Cash on Delivery

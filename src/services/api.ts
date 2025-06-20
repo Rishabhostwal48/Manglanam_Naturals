@@ -1,7 +1,7 @@
 import axios, { AxiosError } from "axios";
 
 const API_URL =
-  import.meta.env.VITE_API_URL || "https://manglanam-server.onrender.com/api";
+  import.meta.env.VITE_API_URL || "https://localhost:5000/api";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -58,7 +58,7 @@ api.interceptors.response.use(
       url: error.config?.url,
       method: error.config?.method,
       status: error.response?.status,
-      message: error.response?.data?.message
+      message: (error.response?.data as { message?: string })?.message
     });
     if (error.response) {
       const { status, data } = error.response as { status: number; data: any };

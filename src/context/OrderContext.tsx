@@ -168,58 +168,84 @@ export const OrderProvider = ({ children }: OrderProviderProps) => {
     setLoading(true);
     setError(null);
     try {
-      const formattedOrderItems = orderItems.map((item) => ({
-        product: item.id,
+      console.log('Creating order with data:', orderData);
+
+      // Validate order items
+      if (!orderData.orderItems || !Array.isArray(orderData.orderItems) || orderData.orderItems.length === 0) {
+        throw new Error('No order items provided');
+      }
+
+      // Format order items
+      const formattedOrderItems = orderData.orderItems.map((item: any) => ({
+        product: item.product,
         name: item.name,
-        size: item.size,
+        size: item.size || 'default',
         quantity: item.quantity,
         price: item.price,
-        salePrice: item.salePrice,
-        image: item.image,
+        salePrice: item.salePrice || item.price,
+        image: item.image
       }));
-
-      // Calculate total price
-      const itemsPrice = formattedOrderItems.reduce(
-        (sum, item) => sum + (item.salePrice || item.price) * item.quantity,
-        0
-      );
-
-      const totalPrice = itemsPrice + (orderData.taxPrice || 0) + (orderData.shippingPrice || 0);
 
       // Create order using the API instance
       const response = await api.post("/orders", {
         ...orderData,
-        orderItems: formattedOrderItems,
-        itemsPrice,
-        totalPrice,
-        paymentMethod: orderData.paymentMethod,
-        shippingAddress: orderData.shippingAddress
+        orderItems: formattedOrderItems
       });
 
-      if (response.data) {
+      console.log('Order creation response:', response.data);
+
+      if (!response.data || !response.data._id) {
+        throw new Error('Failed to create order: No order ID received');
+      }
+
+      const orderId = response.data._id;
+
         // If payment method is Razorpay, create Razorpay order
-        if (orderData.paymentMethod === 'razorpay') {
+      if (orderData.paymentMethod === 'Razorpay') {
+        try {
+          console.log('Creating Razorpay order for order:', orderId);
           const razorpayResponse = await api.post('/payments/create-razorpay-order', {
-            orderId: response.data._id,
-            amount: totalPrice * 100 // Razorpay expects amount in paise
+            amount: orderData.totalPrice,
+            currency: 'INR',
+            receipt: orderId
           });
-          
-          return {
-            ...response.data,
-            razorpayOrder: razorpayResponse.data
-          };
+
+          console.log('Razorpay order created:', razorpayResponse.data);
+
+          if (!razorpayResponse.data || !razorpayResponse.data.success) {
+            console.error('Invalid Razorpay response:', razorpayResponse.data);
+            throw new Error(razorpayResponse.data?.message || 'Failed to create Razorpay order');
+          }
+
+          if (!razorpayResponse.data.order || !razorpayResponse.data.order.id) {
+            console.error('Missing Razorpay order details:', razorpayResponse.data);
+            throw new Error('Razorpay order details not received');
+          }
+
+          // Update the order with Razorpay details
+          const updatedOrder = await api.put(`/orders/${orderId}`, {
+            razorpayOrder: razorpayResponse.data.order
+          });
+
+          console.log('Order updated with Razorpay details:', updatedOrder.data);
+          return updatedOrder.data;
+        } catch (error: any) {
+          console.error('Error creating Razorpay order:', error);
+          const errorMessage = error.response?.data?.message || error.message || 'Failed to create Razorpay order';
+          setError(errorMessage);
+          throw new Error(errorMessage);
         }
+      }
 
         clearOrder();
         return response.data;
-      }
-
-      throw new Error('Failed to create order');
     } catch (error: any) {
-      setLoading(false);
-      const errorMessage = error.response?.data?.message || "Error creating order";
+      console.error('Error creating order:', error);
+      const errorMessage = error.response?.data?.message || error.message || "Error creating order";
       setError(errorMessage);
       throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
