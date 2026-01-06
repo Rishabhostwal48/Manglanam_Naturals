@@ -111,7 +111,7 @@ try {
   const io = new Server(server, {
     cors: {
       origin: process.env.NODE_ENV === 'production'
-        ? [process.env.FRONTEND_URL || 'https://yourdomain.com']
+        ? [process.env.FRONTEND_URL || 'https://manglanam-naturals.vercel.app']
         : ['http://localhost:8080',],
       methods: ['GET', 'POST'],
       credentials: true
@@ -149,3 +149,6 @@ try {
   console.error('Failed to initialize Socket.IO:', error);
   // console.log('Continuing without Socket.IO');
 }
+
+
+export default app;
