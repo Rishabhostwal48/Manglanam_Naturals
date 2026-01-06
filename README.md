@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: https://manglanam.com
+**URL**: https://manglanam-natural.vercel.app
 
 ## What technologies are used for this project?
 

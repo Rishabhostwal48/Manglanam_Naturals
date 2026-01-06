@@ -103,7 +103,7 @@ export default function Home() {
                 <img
                   src={image.src}
                   alt={image.alt}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-fill"
                 />
                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                   <div className="text-center text-white px-4">
@@ -126,33 +126,6 @@ export default function Home() {
             </div>
           </div>
         </section>
-
-        {/* Main Heading Section */}
-        {/* <section className="py-16 bg-white">
-          <div className="container-custom">
-            <div className="md:w-2/3  text-center flex flex-col items-left">
-              <span className="inline-block text-primary font-medium mb-2">Premium Spice Collection</span>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-playfair font-bold leading-tight mb-4">
-                Authentic Spices,<br />
-                <span className="text-primary">Extraordinary Flavors</span>
-              </h1>
-              <p className="text-lg text-gray-700 mb-8 max-w-2xl mx-auto">
-                Discover our premium spices sourced directly from farms around the world.
-                Transform your cooking with the finest ingredients nature has to offer.
-              </p>
-              <div className="flex flex-wrap gap-4 justify-center">
-                <Button size="lg" rounded="full" variant="cardamom" asChild>
-                  <Link to="/products">Shop Now</Link>
-                </Button>
-                <Button size="lg" rounded="full" variant="outline" asChild>
-                  <Link to="/about">Our Story</Link>
-                </Button>
-                <img src="./images/yash.jpg" alt="Yash Jain" className="w-20px h-18px rounded-full" />
-              </div>
-            </div>
-          </div>
-        </section> */}
-
 
         <section className="relative py-32 mt-16 bg-gray-50">
           <div className="container-custom">

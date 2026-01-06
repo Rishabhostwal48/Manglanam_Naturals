@@ -140,12 +140,12 @@ try {
     });
     
     socket.on('disconnect', () => {
-      console.log('Client disconnected');
+      // console.log('Client disconnected');
     });
   });
   
-  console.log('Socket.IO initialized');
+  // console.log('Socket.IO initialized');
 } catch (error) {
   console.error('Failed to initialize Socket.IO:', error);
-  console.log('Continuing without Socket.IO');
+  // console.log('Continuing without Socket.IO');
 }

@@ -15,34 +15,6 @@ export interface BlogPost {
   };
 }
 
-// Blog posts will be fetched from the API
-export const blogPosts: BlogPost[] = [];
-
-// Helper functions for blog posts
-export function getBlogPostBySlug(slug: string): BlogPost | undefined {
-  console.log('getBlogPostBySlug called with:', slug);
-  // In the real implementation, this would make an API call
-  return undefined;
-}
-
-export function getRecentBlogPosts(count: number = 3): BlogPost[] {
-  console.log('getRecentBlogPosts called with count:', count);
-  // In the real implementation, this would make an API call
-  return [];
-}
-
-export function getBlogPostsByCategory(category: string): BlogPost[] {
-  console.log('getBlogPostsByCategory called with:', category);
-  // In the real implementation, this would make an API call
-  return [];
-}
-
-export function searchBlogPosts(query: string): BlogPost[] {
-  console.log('searchBlogPosts called with:', query);
-  // In the real implementation, this would make an API call
-  return [];
-}
-
 export const sampleBlogPosts: BlogPost[] = [
   {
     id: "1",
@@ -95,13 +67,13 @@ export const sampleBlogPosts: BlogPost[] = [
       
       <p>This butter chicken recipe showcases the perfect balance of spices that Manglanam Spices is known for. The key is to use fresh, high-quality spices for the most authentic flavor.</p>
     `,
-    image: "/images/blog/butter-chicken.jpg",
+    image: "public/images/blog/butter-chicken.jpg",
     date: "April 2, 2025",
     readTime: 8,
     categories: ["Recipe", "Indian Cuisine", "Main Course"],
     author: {
       name: "Priya Sharma",
-      avatar: "/images/avatars/priya.jpg"
+      avatar: "public/images/avatars/priya.jpg"
     }
   },
   {
@@ -165,13 +137,13 @@ export const sampleBlogPosts: BlogPost[] = [
       
       <p>Incorporate this golden spice into your daily routine and experience the wonderful benefits it has to offer!</p>
     `,
-    image: "/images/blog/turmeric-guide.jpg",
+    image: "public/images/blog/turmeric-guide.jpg",
     date: "March 28, 2025",
     readTime: 10,
     categories: ["Spice Guide", "Health & Wellness", "Ingredients"],
     author: {
       name: "Dr. Rajesh Kumar",
-      avatar: "/images/avatars/rajesh.jpg"
+      avatar: "public/images/avatars/rajesh.jpg"
     }
   },
   {
@@ -239,13 +211,13 @@ export const sampleBlogPosts: BlogPost[] = [
       
       <p>With these five essential spices, you'll be amazed at how you can transform simple ingredients into extraordinary meals!</p>
     `,
-    image: "/images/blog/essential-spices.jpg",
+    image: "public/images/blog/essential-spices.jpg",
     date: "March 22, 2025",
     readTime: 7,
     categories: ["Spice Guide", "Cooking Tips", "Beginners"],
     author: {
       name: "Chef Anand Kapoor",
-      avatar: "/images/avatars/anand.jpg"
+      avatar: "public/images/avatars/anand.jpg"
     }
   },
   {
@@ -341,13 +313,13 @@ export const sampleBlogPosts: BlogPost[] = [
       
       <p>Enjoy this royal dish that brings together the finest spices in a harmonious blend!</p>
     `,
-    image: "/images/blog/biryani.jpg",
+    image: "public/images/blog/biryani.jpg",
     date: "March 15, 2025",
     readTime: 12,
     categories: ["Recipe", "Indian Cuisine", "Main Course"],
     author: {
       name: "Chef Anand Kapoor",
-      avatar: "/images/avatars/anand.jpg"
+      avatar: "public/images/avatars/anand.jpg"
     }
   },
   {
@@ -422,13 +394,13 @@ export const sampleBlogPosts: BlogPost[] = [
       
       <p>Nature has provided us with gentle remedies for many of life's challenges, including sleep difficulties. These spices offer a holistic approach to improving sleep quality without the side effects often associated with sleep medications.</p>
     `,
-    image: "/images/blog/sleep-spices.jpg",
+    image: "public/images/blog/sleep-spices.jpg",
     date: "March 10, 2025",
     readTime: 9,
     categories: ["Health & Wellness", "Spice Guide", "Natural Remedies"],
     author: {
       name: "Dr. Rajesh Kumar",
-      avatar: "/images/avatars/rajesh.jpg"
+      avatar: "public/images/avatars/rajesh.jpg"
     }
   },
   {
@@ -517,13 +489,41 @@ export const sampleBlogPosts: BlogPost[] = [
       
       <p>However you enjoy it, chai connects you to a rich tradition of flavor, comfort, and hospitality. Experiment with the spice ratios to find your perfect cup!</p>
     `,
-    image: "/images/blog/masala-chai.jpg",
+    image: "public/images/blog/masala-chai.jpg",
     date: "March 5, 2025",
     readTime: 8,
     categories: ["Recipe", "Beverages", "Indian Cuisine"],
     author: {
       name: "Priya Sharma",
-      avatar: "/images/avatars/priya.jpg"
+      avatar: "public/images/avatars/priya.jpg"
     }
   }
 ];
+
+// Blog posts will be fetched from the API
+export const blogPosts: BlogPost[] = sampleBlogPosts;
+
+// Helper functions for blog posts
+export function getBlogPostBySlug(slug: string): BlogPost | undefined {
+  console.log('getBlogPostBySlug called with:', slug);
+  // In the real implementation, this would make an API call
+  return undefined;
+}
+
+export function getRecentBlogPosts(count: number = 3): BlogPost[] {
+  console.log('getRecentBlogPosts called with count:', count);
+  // In the real implementation, this would make an API call
+  return [];
+}
+
+export function getBlogPostsByCategory(category: string): BlogPost[] {
+  console.log('getBlogPostsByCategory called with:', category);
+  // In the real implementation, this would make an API call
+  return [];
+}
+
+export function searchBlogPosts(query: string): BlogPost[] {
+  console.log('searchBlogPosts called with:', query);
+  // In the real implementation, this would make an API call
+  return [];
+}
